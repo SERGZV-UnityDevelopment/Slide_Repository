@@ -1,0 +1,53 @@
+﻿using UnityEngine;
+using System;
+using System.Collections.Generic;
+
+
+// Этот скрипт не вешаеться ни на один объект в игре но он хранит избранные написанные мною методы и публичные переменные
+
+
+public enum MainMenuWins : byte {MainMenu, Magazine, Profile, Profile_Avatar, Information}				// Перечисление окон главного меню
+public enum GameMenuWins : byte {Start, ButSel, WashSel, TableSel, SkySel, Game, Pause, Goal, Finish}	// Перечисление окон игры
+public enum Mode : byte {Passage, PlayerVsPlayer}														// Режимы игры
+
+public class MyMetodsAndVars : MonoBehaviour 
+{
+	public static GameObject halavl;
+	public int TestStatic;
+	public AudioClip test ;
+}
+
+
+[Serializable]
+public class InfoProfiles									// В этом классе общая информация о профилях
+{
+	public sbyte ActiveProfile;			  	 				// Номер активного профилья - тот профиль который мы выбрали и за который играем
+	public string[] Profiles = new string[5];				// Массив имён профилей игроков(Номер имени в массиве означает номер профиля)
+}
+
+
+[Serializable]
+public class InfoProfile							// В этом классе конкретная информация о конкретном профиле
+{
+	//-----------------------------------------------------------Данные которые нужно сохранять---------------------------------------------------
+	public string PlayersAv;  						// Сдесь храниться имя и адрес аватара профиля
+	public int Score;								// Сдесь храниться общий счёт игрока - "Деньги"
+	public byte Progress;		  					// Номер следующего уровеня который доступен для прохождения
+	public byte PlayedLevel;					  	// Последний сыгранный уровень для данного профиля
+	public short[] LastModels = new short[4];		// 4 элемента массива. Каждая цифра указывает на номер элемента массива в котором он лежит
+	public bool RightSide;						  	// Сторона на которой предпочитает играть игрок этого профиля
+	public bool AlienStyle;						  	// Предпочитаемый стиль цифр земной или инопланетный (true означает инопланетный)
+	//--------------------------------------------------------------------------------------------------------------------------------------------
+	//--------------------------------------------Сохранения для открытых и купленных элементов магазина------------------------------------------
+	public List<ushort> ObjectNombers = new List<ushort>();				// Номера объектов в масииве ObjectsStore
+	public List<ushort> ActiveMats = new List<ushort>();				// Номера активных материалов для объектов в массиве
+	public List<char> ObjectState = new List<char>();					// Состояния объектов в массиве Открыт - O или Куплен - B
+	public List<List<char>> StatesMaterials = new List<List<char>>();	// Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+	public List<List<char>> StateImprovements = new List<List<char>>(); // Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+	
+	public List<byte> SkyboxNomers = new List<byte>();					// Номера скайбоксов в массиве SkyboxScreens
+	public List<char> SkyboxState = new List<char>();					// Состояния скайбоксов Открыт - O или Куплен - B
+}
+
+
+

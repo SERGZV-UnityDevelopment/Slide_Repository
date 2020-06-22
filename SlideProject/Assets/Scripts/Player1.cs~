@@ -1,0 +1,44 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class Player1 : MonoBehaviour 
+{
+	public int Force = 500;
+	public bool SpeedP1 = false;
+	public bool PlayerControl_1 = true;
+
+
+
+	void Update()
+	{
+		if(SpeedP1 == true)
+		{
+			GetComponent<Rigidbody>().velocity = new Vector3(0,0,0);
+			SpeedP1 = false;
+		}
+	}
+
+
+	void FixedUpdate () 
+	{
+		if(PlayerControl_1 == true)
+		{
+			if(Input.GetKey(KeyCode.W))
+			{
+				GetComponent<Rigidbody>().AddForce(0,0,Force);
+			}
+			if(Input.GetKey(KeyCode.S))
+			{
+				GetComponent<Rigidbody>().AddForce(0,0,-Force);
+			}
+			if(Input.GetKey(KeyCode.A))
+			{
+				GetComponent<Rigidbody>().AddForce(-Force,0,0);
+			}
+			if(Input.GetKey(KeyCode.D))
+			{
+				GetComponent<Rigidbody>().AddForce(Force,0,0);
+			}
+		}
+	}
+}

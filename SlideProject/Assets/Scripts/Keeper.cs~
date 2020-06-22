@@ -1,0 +1,226 @@
+﻿// В этом скрипте храниться вся информация о профилях. Тут происходит извлечение информации для профилей и сохранение в профили
+using UnityEngine;
+using System;
+using System.IO;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+
+
+public class Keeper : MonoBehaviour {
+	public GameObject Fotographer;			// Переменная фотограф сюда помещаеться префаб камеры с источником света
+	public bool RightSide = true;			// Последняя выбранная сторона на которой предпочитает играть 1 игрок
+	public GameManager GM;					// Переменная для скрипта "GameManager"
+	StoreContent SC;						// Переменная для скрипта "Контент магазина" (StoreContent)
+	public PauseMenu PM;					// Переменная для скрипта "Меню паузы"
+	public string path;						// Сдесь будет лежать путь к сохранению и загрузке файла 
+	public bool Finish;						// Эта переменная говорит закончила ли коронтина FillObjText рендерить текстурки
+	public bool Activate = false;			// эта переменная говорит вызывалася ли уже метод AfterFillObjText
+	//-------------------------------------------------Данные профилей первого и второго игроков------------------------------------------------------
+	string[] Profiles = new string[5];						// Массив имён игроков
+	sbyte ActiveProfile;									// Активный профиль - тот профиль который мы выбрали и за который играем
+	Texture2D FirstPlayerAv;								// Аватарка для активного (Первого) игрока
+	public int FPScore;										// Деньги первого игрока
+	public short[] FPLastModels = new short[4];				// (FirstPlayerLastModels) Последние выбранные объекты профиля первого игрока
+	public Texture2D[] FPLMA;								// (FirstPlayerLastModlesAvatars) Отрендеренные аватарки для каждого последнего выбранного объекта 1 игрока
+	bool AlienStyle;										// Какой стиль текста предпочитаем для цифр для профиля первого игрока
+	sbyte SecondProfile;									// Номер профиля выбранного как соперник главному игроку
+	Texture2D SecondPlayerAvatar;							// Аватарка второго игрока (Второй игрок или компьютер)
+	int SPScore;											// Деньги второго игрока			
+	short[] SPLastModels = new short[4];					// (SecondPlayerLastModels)Последние выбранные объекты профиля второго игрока
+	Texture2D[] SPLMA;										// (FirstPlayerLastModlesAvatars) Отрендеренные аватарки для каждого последнего объекта 2 игрока
+	//---------------------------------------Сохранения для открытых и купленных предметов профиля 1 игрока---------------------------------------
+	List<ushort> FPObjectNombers = new List<ushort>();				// Номера объектов в массиве ObjectsStore
+	List<ushort> FPActiveMats = new List<ushort>();					// Номера активных материалов для объектов в массиве
+	List<char> FPObjectState = new List<char>();					// Состояния объектов Открыт - O или Куплен - B
+	List<List<char>> FPStatesMaterials = new List<List<char>>();	// Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+	List<List<char>> FPStateImprovements = new List<List<char>>();	// Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+	
+	List<byte> FPSkyboxNomers = new List<byte>();					// Номера скайбоксов в массиве SkyboxScreens
+	List<char> FPSkyboxState = new List<char>();					// Состояния скайбоксов Открыт - O или Куплен - B
+	//--------------------------------------Сохранения для открытых и купленных предметов профиля 2 игрока--------------------------------------------
+	List<ushort> SPObjectNombers = new List<ushort>();				// Номера объектов в массиве ObjectsStore
+	List<ushort> SPActiveMats = new List<ushort>();					// Номера активных материалов для объектов в массиве
+	List<char> SPObjectState = new List<char>();					// Состояния объектов Открыт - O или Куплен - B
+	List<List<char>> SPStatesMaterials = new List<List<char>>();	// Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+	List<List<char>> SPStateImprovements = new List<List<char>>();	// Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+	
+	List<byte> SPSkyboxNomers = new List<byte>();					// Номера скайбоксов в массиве SkyboxScreens
+	List<char> SPSkyboxState = new List<char>();					// Состояния скайбоксов Открыт - O или Куплен - B
+	
+
+	void Start()
+	{
+		path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); 	// Создаём/получаем путь к папке мои документы
+		SC = GameObject.Find("StoreContent").GetComponent<StoreContent>();			// Находим на сцене объект StoreContent берём оттуда скрипт StoreContent и ложим в переменную SC
+		PM = GetComponent<PauseMenu>();												// Ложим скрипт PauseMenu в переменную PM
+		GM = GetComponent<GameManager>();											// Ложим объект GameManager в переменную GameM
+		FillProfile();																// Заполняем профиль первого игрока информацией
+		StartCoroutine(FillObjTex(FPObjectNombers, FPActiveMats, FPObjectState));	// Фотографируем текстуры для купленных объектов 1 игрока
+	}
+
+
+	void Update()
+	{
+		if(Finish & !Activate)	// Если коронтина FillObjText выполнила свою задачу но мы ещё не вызвали следующие за ним методы
+		{
+			FPLMA = FillLastTextures(FPLastModels);					// Заполняем массив текстур последних 4 объектов 1 игрока
+			GM.CallCalculation();									// Вызываем метод который запускает просчёт позиции и расстановку объектов
+			Activate = true;										// Указываем что мы вызвали следующие за коронтиной FillObjTex методы
+		}
+	}
+
+
+	//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+
+	void FillProfile()	// Этот метод при старте заполняет активный профиль сохранённой информацией
+	{
+		IFormatter Form = new BinaryFormatter();					// Создаём дессериализатор
+		// Создаём поток читающий файл ProfileInf
+		FileStream LoadInf = new FileStream(path + "/My Games/Slide/Saves/ProfilesInf.bin", FileMode.Open, FileAccess.Read);
+		InfoProfiles SP = (InfoProfiles)Form.Deserialize(LoadInf);	// Создаём объект и десериализуем в него данные из файла ProfilesInf
+		ActiveProfile = SP.ActiveProfile;							// Загружаем в переменную номер активного профиля из сохранения
+		Profiles = SP.Profiles;										// Загружаем в массив имена профилей
+		LoadInf.Close();											// Закрываем поток LoadInf
+
+		// Создаём поток читающий файлы профилей
+		FileStream LoadProf = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[ActiveProfile] + ".bin", FileMode.Open, FileAccess.Read);
+		InfoProfile _SP = (InfoProfile)Form.Deserialize(LoadProf); 		// Создаём объект и десериализуем в него сохранение
+		FirstPlayerAv = new WWW("file:///" + _SP.PlayersAv).texture;	// Загружаем сохранённую аватарку главного игрока в переменную Firstpl...
+		FPScore = _SP.Score;											// Присваиваем переменной Score деньги активного игрока
+
+		FPLastModels = _SP.LastModels;			  		// Присваиваем массиву LastModels последние выбранные элементы игры
+		RightSide = _SP.RightSide;				  		// Присваиваем переменной RightSide выбранную сторону для игры
+		AlienStyle = _SP.AlienStyle;			  		// Присваиваем переменной AlienStyle сохранённый стиль цифр
+		FPObjectNombers = _SP.ObjectNombers;		  	// Присваиваем списку ObjectNombers номера открытых и купленных объектов в масииве ObjectsStore
+		FPActiveMats = _SP.ActiveMats;			  		// Присваиваем списку ActiveMats Номера активных материалов для объектов в массиве
+		FPObjectState = _SP.ObjectState;		 	  	// Присваиваем списку ObjectsState Состояния объектов в массиве Открыт или Куплен
+		FPStatesMaterials = _SP.StatesMaterials; 	  	// Присваиваем списку Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+		FPStateImprovements = _SP.StateImprovements;	// Присваиваем списку Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+		FPSkyboxNomers = _SP.SkyboxNomers;		  		// Присваиваем списку SkyboxNomers Номера скайбоксов в массиве SkyboxScreens
+		FPSkyboxState = _SP.SkyboxState;			  	// Присваиваем списку SkyboxState Состояния скайбоксов Открыт - O или Куплен - B
+		LoadProf.Close();								// Закрываем поток LoadProf
+	}
+
+
+	// Этот метод заполняет объекты массива ObjectsStore текстурами для инвентаря игрока
+	IEnumerator FillObjTex(List<ushort> ObjectNombers, List<ushort> ActiveMats, List<char> ObjectState)		
+	{
+		// Рендер текстура в которую сначала будет рендериться изображение
+		RenderTexture RendTex = new RenderTexture(100, 100, 24, RenderTextureFormat.ARGB32);	
+		GameObject CamEmpty;		// Сдесь лежит пустышка на которой весит компонент камера
+		Camera CamClone;			// Ссылка на клон камеры
+		GameObject ObjClone;		// Ссылка на клон фотографируемого объекта
+		short ME;					// (Magazine Element) Номер опрашиваемого элемента в массиве SC.ObjectStore 
+		
+		// Помещаем на сцену префаб фотограф и ложим ссылку на него в переменную CamEmpty
+		CamEmpty = Instantiate(Fotographer, new Vector3(0, -6, -1.4f), Quaternion.identity) as GameObject;
+		CamClone = CamEmpty.GetComponent<Camera>();									// Из CamEmpty компонент Camera ложим в переменную CamClone					
+		CamClone.targetTexture = RendTex;											// Устанавливаем для 2ой камеры рендер текстуру
+		CamClone.pixelRect = new Rect(0,0,100,100);									// Устанавливаем разрешение для второй камеры
+		for(int a=0; a<ObjectState.Count ; a++)							 			// Продолжаем цикл пока не пройдём весь список ObjectState
+		{
+			if(ObjectState[a] == 'B')			// Если объект с номером цикла в списке ObjectState куплен а не просто открыт
+			{	
+				ME = (short)ObjectNombers[a];	// То мы получаем его номер в массиве SC.ObjectStore и ложим в переменную ME
+
+				// помещаем очередной клон очередного объекта на сцену а также ложим ссылку на этот клон в переменную ObjClone
+				ObjClone = Instantiate(SC.ObjectsStore[ME], new Vector3(0,-6,0), Quaternion.AngleAxis(45, new Vector3(-1, 0, 0))) as GameObject;
+				if(ME<249)											// Если мы работаем с шайбой или битой а не столом
+				{
+					if(ActiveMats[a] != 0)							// Если номер материала у этого объекта не стандартный (Не нулевой)
+					{
+						// Мы присваиваем сохранённый не стандартный первый или единственный материал
+						ObjClone.GetComponent<Renderer>().material=ObjClone.GetComponent<ObjectScript>().FirstMaterials[ActiveMats[ME]];			// То мы присваиваем ему номер сохранённого нестандартного материала
+						
+						// Если у обрабатываемого объекта второй материал существует
+						if(ObjClone.GetComponent<ObjectScript>().SecondMaterials.Length > 0)
+						{
+							// Мы присваиваем сохранённый не стандартный второй материал
+							ObjClone.GetComponent<Renderer>().materials[1] =
+								ObjClone.GetComponent<ObjectScript>().SecondMaterials[ActiveMats[ME]];
+						}
+						
+						// Если у обрабатываемого объекта третий материал существует
+						if(ObjClone.GetComponent<ObjectScript>().ThirdMaterials.Length > 0)
+						{
+							// Мы присваиваем сохранённый не стандартный третий материал
+							ObjClone.GetComponent<Renderer>().materials[2] =
+								ObjClone.GetComponent<ObjectScript>().SecondMaterials[ActiveMats[ME]];
+						}
+					}	
+				}
+				else 												// Иначе если мы работаем с игровым столом
+				{
+					if(ActiveMats[ME] != 0)							// Если номер материала у этого стола не стандартный (Не нулевой)
+					{
+						// Присваиваем полю этого стола первый материал
+						ObjClone.transform.GetChild(0).GetComponent<Renderer>().materials[0] = 
+							ObjClone.GetComponent<ObjectScript>().FirstMaterials[ME];
+						
+						// Присваеваем бордюру этого стола третий материал
+						ObjClone.transform.GetChild(1).GetComponent<Renderer>().materials[0] = 
+							ObjClone.GetComponent<ObjectScript>().ThirdMaterials[ME];
+						
+						if(ObjClone.GetComponent<ObjectScript>().SecondMaterials.Length > 0) // Если у поля стола имееться второй материал
+						{
+							// То мы присваеваем ему второй материал
+							ObjClone.transform.GetChild(0).GetComponent<Renderer>().materials[1] = 
+								ObjClone.GetComponent<ObjectScript>().SecondMaterials[ME];
+						}
+					}
+				}
+				// Придаём новому клону объекта размер указанный в скрипте его префаба
+				ObjClone.transform.localScale = SC.ObjectsStore[ME].GetComponent<ObjectScript>().ViewSize;
+				// Создаём текстуру 2D и ложим её в переменную для инвентаря того объекта который мы сфотографировали
+				SC.ObjectsStore[ME].GetComponent<ObjectScript>().FotoInventory = new Texture2D(100, 100, TextureFormat.ARGB32, false);
+				yield return new WaitForEndOfFrame();									// Ждём конца отрисовки текущего кадра
+				CamClone.Render();														// Рендерим изображение с камеры клона в рендер текстуру
+				RenderTexture.active = RendTex;											// Ставим RendText активной рендер текстурой
+				// Присваеваем изображение сделанное камерой переменной texture его же скрипта
+				SC.ObjectsStore[ME].GetComponent<ObjectScript>().FotoInventory.ReadPixels(new Rect(0, 0, 100, 100), 0,0, false);
+				SC.ObjectsStore[ME].GetComponent<ObjectScript>().FotoInventory.Apply();		// Применяем текстуру
+				GameObject.Destroy(ObjClone);												// удаляем объект
+			}
+		}
+		GameObject.Destroy(CamEmpty);														// Удаляем префаб фотограф
+		Finish = true;																		// Указываем что коронтина выполнилась
+	}
+
+
+	public Texture2D[] FillLastTextures(short[] LastObjs)	// Этот метод заполняет указанный массив из 4 текстур 4 последних выбранных объектов
+	{
+		Texture2D[] Texs = new Texture2D[4];		// Создаём новый массив текстур
+		//		ObjectScript OS;					// Переменная для компонента ObjectScript обрабатываемого объекта
+		
+		for(byte a=0; a<4; a++)						// Продолжаем цикл пока не заполним 3 ячейки с объектами
+		{
+			if(a<3)									// Если мы проходим не последний цикл
+			{	
+				if(LastObjs[a] != -1)				// Если LastObjects с номером цикла не равен -1 значит он сохранён как последний объект
+				{
+					// Заполняем очередную переменную массива текстурой из переменной FotoInventoryо брабатываемого объекта
+					Texs[a] = SC.ObjectsStore[LastObjs[a]].GetComponent<ObjectScript>().FotoInventory;
+				}
+				else 								// Иначе если он равен -1 значит мы ещё не разу не сохраняли последний объект этого типа
+				{
+					Texs[a] = PM.NotExist;				// Тогда этому слоту мы присваиваем текстуру NoExist
+				}
+			}
+			else									// Если мы проходим последний цикл
+			{
+				if(LastObjs[a] != -1)				// И Если етот слот не равен -1 значит он сохранён
+				{
+					Texs[a] = SC.SkyboxScreens[LastObjs[a]]; // Присваиваем сохранённую текстуру скришота скайбокса 4 элементу
+				}
+				else 								// Иначе если 4 переменная LastObjs равна -1 значит для этого объекта ещё нет сохранения
+				{
+					Texs[3] = PM.NotExist;				// И мы ставим ему текстуру NotExist
+				}
+			}
+		}
+		return Texs;								// Возвращаем из метода массив заполненный текстурами
+	}
+}

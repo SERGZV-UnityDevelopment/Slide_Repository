@@ -1,0 +1,38 @@
+﻿// Этот скрипт для отрисовки "игрового" курсора
+using UnityEngine;
+using System.Collections;
+
+public class UserCursor : MonoBehaviour 
+{
+	public Texture2D[] Сurs;				// Анимация курсора
+	public bool SetCursorVisible = true;	// Сделать пользовательский курсор видимым
+
+
+	void Start()
+	{
+		Cursor.visible = false;				// Делаем стандартный Windows курсор невидимым
+	}
+
+
+	void OnGUI()
+	{
+		GUI.depth = 0;						// Устанавливаем дальность гуи от камеры
+		DrawCursor();						// Вызываем метод отрисовывающий курсор
+	}
+
+
+	void DrawCursor()						// Этот метод отрисовывает мой курсор
+	{
+		if(SetCursorVisible)
+		{
+			if(!Input.GetKey(KeyCode.Mouse0))
+			{
+				GUI.DrawTexture(new Rect(Input.mousePosition.x - 10, Screen.height - 10 -Input.mousePosition.y, 20, 20), Сurs[0]);	// рисуем курсор
+			}
+			else
+			{
+				GUI.DrawTexture(new Rect(Input.mousePosition.x - 10, Screen.height - 10 -Input.mousePosition.y, 20, 20), Сurs[1]);	// рисуем курсор
+			}
+		}
+	}
+}

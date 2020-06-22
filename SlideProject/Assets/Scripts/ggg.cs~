@@ -1,0 +1,18 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class ggg : MonoBehaviour 
+{
+
+	// Use this for initialization
+	void Start () 
+	{
+		StartCoroutine(test());
+	}
+	
+	IEnumerator test()
+	{
+		yield return new WaitForSeconds(0.2f);
+		Debug.Log("sdfsdf");
+	}
+}

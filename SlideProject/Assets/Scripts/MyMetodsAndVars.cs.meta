@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c3d20e677dbaa424ca7b54f9afa170de
+timeCreated: 1431013200
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences:
+  - halavl: {fileID: 139544, guid: fa8a0b7e6f80a0645b0dffb4674dbe0f, type: 2}
+  - test: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

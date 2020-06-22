@@ -1,0 +1,78 @@
+﻿// Этот скрипт запускаеться отдельно (при выключенных других скриптах) чтобы сфотографировать и сохранить фотографию префаба
+using UnityEngine;
+using System.Collections;
+using System.IO;
+
+// Чтобы сделать скриншот объекта нужно положить в переменную Object_ фотографируемый объект
+// Чтобы сделать снимок скайбокса ложить объект ненужно
+// Искать готовый скриншот нужно в корневой папке проекта unity
+
+public class Photographer : MonoBehaviour {
+
+	public GameObject Obj;			// Сюда помещаеться объект магазина который нужно сфотографировать
+	public GameObject Fotographer;	// Префаб фотограф
+	public Texture2D texture;		// Текстура получающаяся на выходе
+
+	void Start () 
+	{
+		if(Obj)										// Если в переменной Obj чтото лежит
+		{
+			StartCoroutine(TakeAPictureObject());	// Мы запускаем метод для фотографии объекта
+		}
+		else 										// Иначе если в ней ничего не лежит
+			StartCoroutine(TakeAScreen());			// Мы запускаем метод для фотографии скриншота
+	}
+
+
+
+
+	IEnumerator TakeAPictureObject()	// Этот метод делает скриншот объекта или улучшения
+	{
+		// Рендер текстура в которую сначала будет рендериться изображение
+		RenderTexture RendTex = new RenderTexture(100, 100, 24, RenderTextureFormat.ARGB32);
+		Camera CamClone;			// Ссылка на клон камеры
+		GameObject ObjClone;		// Ссылка на клон фотографируемого объекта
+		byte[] bytes;				// Сюда сохраним байты фотографии
+
+		Instantiate(Fotographer, new Vector3(0,-2, -1.4f), Quaternion.identity);	// Помещаем на сцену клон префаба фотографа
+		CamClone = GameObject.Find("Fotographer(Clone)").GetComponent<Camera>();	// Помещаем ссылку на этот клон в переменную CamClone
+		CamClone.targetTexture = RendTex;											// Устанавливаем для 2ой камеры рендер текстуру
+		CamClone.pixelRect = new Rect(0,0,100,100);									// Устанавливаем разрешение для второй камеры
+		// Помещаем клон "Цели" на сцену
+		Instantiate(Obj, new Vector3(0,-2,0), Quaternion.AngleAxis(45, new Vector3(-1, 0, 0)));
+		ObjClone = GameObject.Find(Obj.name + "(Clone)");			// Находим и помещаем клон в переменную ObjClone
+		texture = new Texture2D(100, 100, TextureFormat.ARGB32, false); // Создаём текстуру 2D в переменной texure
+		// Придаём клону объекта размер указанный в скрипте его префаба
+		ObjClone.transform.localScale = Obj.GetComponent<ObjectScript>().ViewSize;	// То узнаём из него размер и придаём объекту
+		yield return new WaitForEndOfFrame();						// Ждём конца отрисовки текущего кадра
+		CamClone.Render();											// Рендерим изображение с камеры клона в рендер текстуру
+		RenderTexture.active = RendTex;								// Указываем активную рендер текстуру откуда считаем методом ReadPixels 
+		texture.ReadPixels(new Rect(0, 0, 100, 100), 0,0, false);	// Читаем изображение в переменную texture
+		texture.Apply();											// Применяем текстуру
+		bytes = texture.EncodeToPNG();								// Превращаем нашу текстуру в поток битов и ложим их в массив "bytes"
+		File.WriteAllBytes(Obj.name + ".png", bytes);
+	}
+
+
+	IEnumerator TakeAScreen() // Этот метод делает скриншот скайбокса
+	{
+		// Рендер текстура в которую сначала будет рендериться изображение
+		RenderTexture RendTex = new RenderTexture(99,99, 24, RenderTextureFormat.ARGB32);
+		Camera CamClone;			// Ссылка на клон камеры
+		byte[] bytes;				// Сюда сохраним байты фотографии
+		
+		Instantiate(Fotographer, new Vector3(0,-2, -1.4f), Quaternion.identity);	// Помещаем на сцену клон префаба фотографа
+		CamClone = GameObject.Find("Fotographer(Clone)").GetComponent<Camera>();	// Помещаем ссылку на этот клон в переменную CamClone
+		CamClone.targetTexture = RendTex;											// Устанавливаем для 2ой камеры рендер текстуру
+		CamClone.pixelRect = new Rect(0,0,99,99);									// Устанавливаем разрешение для второй камеры
+		texture = new Texture2D(99, 99, TextureFormat.ARGB32, false); 	// Создаём текстуру 2D в переменной texure
+		// Придаём клону объекта размер указанный в скрипте его префаба
+		yield return new WaitForEndOfFrame();							// Ждём конца отрисовки текущего кадра
+		CamClone.Render();												// Рендерим изображение с камеры клона в рендер текстуру
+		RenderTexture.active = RendTex;									// Указываем активную рендер текстуру откуда считаем методом ReadPixels 
+		texture.ReadPixels(new Rect(0, 0, 99, 99), 0,0, false);			// Читаем изображение в переменную texture
+		texture.Apply();												// Применяем текстуру
+		bytes = texture.EncodeToPNG();									// Превращаем нашу текстуру в поток битов и ложим их в массив "bytes"
+		File.WriteAllBytes("Screenshot" + ".png", bytes);				// 
+	}
+}

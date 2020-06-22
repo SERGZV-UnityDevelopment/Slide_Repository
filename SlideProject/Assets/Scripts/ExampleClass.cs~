@@ -1,0 +1,20 @@
+using UnityEngine;
+using System.Collections;
+
+public class ExampleClass : MonoBehaviour 
+{
+	void Start()
+	{
+		StartCoroutine(Example());
+	}
+	
+	
+	IEnumerator Example() 
+	{
+		print(Time.time);
+		Debug.Log("Before");
+		yield return new WaitForSeconds(3);
+		Debug.Log("After");
+		print(Time.time);
+	}
+}

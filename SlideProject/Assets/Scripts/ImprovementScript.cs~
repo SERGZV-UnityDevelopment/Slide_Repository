@@ -1,0 +1,29 @@
+﻿using UnityEngine;
+using System.Collections;
+
+
+
+// Создаём перечисление всех типов предметов вне класса чтобы он был виден другим скриптам
+public enum TypeImpr : byte {Accelerator}						// Создаём перечисление тип улучшения
+public class ImprovementScript : MonoBehaviour 
+{
+	public TypeImpr TypeImprovement;		// Выбираем тип улучшения
+	public Texture2D FotoStore;				// Фотография для магазина (заполняеться в ручную)
+	public float Mass;						// Масса улучшения
+	public float Strength;					// Сила улучшения (Имеет разный смысл в зависимости от типа улучшения)
+	public Vector3 ViewSize;				// Размер объекта при просмотре 3d окне
+	public int Price;						// Цена улучшения в сапифрах
+
+	void Update () 
+	{
+		if(TypeImprovement == TypeImpr.Accelerator)	// Если тип этого улучшения "Ускоритель"
+		{
+													// То вызываем метод ускоритель
+		}
+	}
+
+	void Accelerator()
+	{
+
+	}
+}

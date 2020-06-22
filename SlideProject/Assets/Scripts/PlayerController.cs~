@@ -1,0 +1,98 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class PlayerController : MonoBehaviour 
+{
+	public ObjectScript OS;						// Переменная для скрипта ObjectScript
+	public GameManager GM;						// Переменная для скрипта GameManager
+	public bool PlayerControl = true;			// Находиться ли шайба под контролем игрока
+	public byte NomberPlayer;					// Сдесь находиться номер игрока каоторый управляет этой шайбой 1 или 2
+	Rigidbody TBR;								// (ThisBatRigitbody) Это игрок на котором висит этот скрипт
+
+
+	void Awake()																// Как только объект с этим скриптом попадёт на сцену
+	{
+		OS = GetComponent<ObjectScript>();										// В переменную ObjectScript загружаем ObjectScript
+		TBR = GetComponent<Rigidbody>();										// Ложим в переменную TBR Rigidbody биты на которой висит этот скрипт
+		GM = GameObject.Find("GameManager").GetComponent<GameManager>();		// Ложим в переменную GM скрипт GameManager с пустышки на сцене под темже именем GameManager
+		GM.GoalEvent += Goal;													// Подписываем метод гол на событие GoalEvent
+	}
+
+
+	void FixedUpdate () 
+	{
+		if(PlayerControl == true)												// Если переменная PlayerControl правда
+		{
+			if(NomberPlayer == 1)												// Если этот скрипт висит на бите первого игрока
+			{
+				if(Input.GetAxis("1St Vertical")>0.1f)							// Если поступил сигнал направления вверх
+				{
+					TBR.AddForce(0,0,OS.Force);									// Придаём направление вверх
+				}
+				if(Input.GetAxis("1St Vertical")<-0.1f)							// Если поступил сигнал направления вниз
+				{
+					TBR.AddForce(0,0,-OS.Force );								// Придаём направление вниз
+				}
+				if(Input.GetAxis("1St Horizontal")>0.1f)						// Если поступил сигнал направления вправо
+				{
+					TBR.AddForce(OS.Force,0,0);									// Придаём направление вправо
+				}
+				if(Input.GetAxis("1St Horizontal")<-0.1f)						// Если поступил сигнал направления влево
+				{
+					TBR.AddForce(-OS.Force,0,0);								// Придаём направление влево
+				}
+			}
+//			else if(NomberPlayer == 2)											// Если этот скрипт висит на бите второго игрока
+//			{
+		//		if(Input.GetKey("2St Up"))										// Если была нажата клавиша назначенная на "2St UP"
+		//		{
+		//			GetComponent<Rigidbody>().AddForce(0,0,OS.Force);			// Придаём направление вверх
+		//		}
+		//		if(Input.GetKey("2St Down"))									// Если была нажата клавиша назначенная на "2St Down"
+		//		{
+		//			GetComponent<Rigidbody>().AddForce(0,0,-OS.Force);			// Придаём направление вниз
+		//		}
+		//		if(Input.GetKey("2St Left"))									// Если была нажата клавиша назначенная на "2St Left"
+		//		{	
+		//			GetComponent<Rigidbody>().AddForce(-OS.Force,0,0);			// Придаём направление влево
+		//		}
+		//		if(Input.GetKey("2St Right"))									// Если была нажата клавиша назначенная на "2St Right"
+		//		{
+		//			GetComponent<Rigidbody>().AddForce(OS.Force,0,0);			// Придаём направление вправо
+		//		}
+//			}
+		}
+	}
+
+
+//-----------------------------------------------------------------------------------------Событие гола--------------------------------------------------------------------------------------------------------------------------
+	
+
+	void Goal()															// Этот метод вызываеться один раз во время гола
+	{
+		PlayerControl = false;											// Отбираем управление у игрока
+		GetComponent<Rigidbody>().velocity = new Vector3(0,0,0);    	// Ставим скорость биты во всех направлениях 0
+		StartCoroutine(AfterGoal());									// Вызываем коронтину AfterGoal					
+	}
+
+
+	IEnumerator AfterGoal()												// Этот метод вызываеться после выполнения метода гол
+	{
+		yield return new WaitForSeconds(4); 							// Ждём 4 секунды
+		if(NomberPlayer == 1)											// Если это бита первого игрока
+			transform.position = GM.SPP1;								// То мы устанавливаем его на просчитанную позицию для первого игрока
+		else if(NomberPlayer == 2)										// Иначе если это второй игрок
+			transform.position = GM.SPP2;								// То ставим его на просчитанную позицию для второго игрока
+		yield return new WaitForSeconds(1);								// Ждём 1 секунду
+		PlayerControl = true;      										// Возвращаем управление у игрока
+	}
+
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+	void OnDisable()
+	{
+		GM.GoalEvent -= Goal;											// Отписываем метод гол от события GoalEvent
+	}
+}

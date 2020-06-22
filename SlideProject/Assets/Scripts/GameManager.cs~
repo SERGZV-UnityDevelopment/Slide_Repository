@@ -1,0 +1,189 @@
+﻿using UnityEngine;
+using System.Collections;
+
+// Выяснить почему не правильно высчитываеться SafetyPoint
+// Сделать чтобы в скрипте искуственного интелекта в методе TakeStandPosition было ещё и отбитие шайбы в случае если она проходит слишком близко
+// А также в методе TakeSafetyPosition было после взятия Safety point переменная ReachedSafetyPoint ставилась как true и если она true и уже нулевой луч от шайбы косаеться тригера ворот то мы пускаем биту в шайбу
+// далее при столкновении мы ставим что мы не достигли safety point и компьютер в следующий раз тоже сначала вернётся к ней
+// 2) Далее сделать расчёт точки куда он будет возвращаться для ожидания "StandPoint" для шайбы искуственного интрелекта
+// для этого от начальной тчки по оси х мы будем отнимать диаметр биты и дополнительно немного чтобы она не врезалась в коллайдер стола при маневрировании
+// Проверить во всех скриптах чтобы они общались с другими скриптами которые находяться на других объектах через GameManager а именно переменные скриптов
+// не относящихся к объекту на котором весит скрипт переносим в GameManager
+// 3) аменить время на рассояние в скрипте биты.
+// 4) Написать искуственный интеллект для биты противника
+// Сделать отрисовку 4 окон инвентаря для каждой категории при нажатии на одну из 4х кнопок 
+// Сделать наброски в Gimp 2 для новых изображений в игре
+// Написать PauseMenu + где будут выводиться дополнительные окна и использовать для них наброски
+// Сделать чтобы правильно выставлялась шайба при старте и после гола
+// Также после гола нужно ставить секундомер на 0
+// Почемуто биты и шайба двигаються дёрганно. Как этого избежать?
+
+
+public class GameManager : MonoBehaviour 
+{ 
+	public delegate void EventDelegate();			// Объявляем делегат для событий с возвращаемым типом значения Void
+	public event EventDelegate GoalEvent;			// Событие гола
+	public event EventDelegate LastGoalEvent;		// Событие последнего гола
+	public event EventDelegate StartLevelEvent;		// Событие старта уровня "Происходит один раз за весь уровень при нажатии кнопки старт" 
+	public Mode GameMode;							// Режим игры
+	public GameObject AIBat;						// Оригинал биты компьютерного противника
+	public GameObject Puck; 						// Ссылка на клон префаба шайбы
+	public GameObject Player1; 						// Ссылка на клон префаба биты 1 ого игрока
+	public GameObject Player2;						// Ссылка на клон префаба биты 2 ого игрока
+	public Vector3 StandPoint;						// Точка на которую бита возвращаеться для защиты ворот
+	public GameObject Table;						// Переменная стол нужна в прохождении чтобы определить какой стол на этом уровне
+	public PauseMenu PM;							// Переменная для скрипта "Меню паузы"
+	StoreContent SC;								// Переменная для скрипта "Контент магазина"
+	Keeper Kep;										// Переменная для скрипта "Хранитель"
+	ArtificialIntelligence AI;						// Переменная для скрипта "искуственный интеллект" для биты компьютера
+	public GameObject Gate;							// Переменная для префаба ворот
+	public Vector3 FirstPos; 						// Это позиция шайбы для первого игрока
+	public Vector3 SecondPos; 						// Это позиция шайбы для второго игрока
+	public Vector3 SPP1; 							// (Start Player Position 1) Это стартовая позиция первого игрока
+	public Vector3 SPP2; 							// (Player Player Position 2) Это стартовая позиция второго игрока
+	GameObject G1;									// Ссылка на клон префаба ворот для 1 игрока
+	GameObject G2;									// Ссылка на клон префаба ворот для 2 игрока
+	Vector3 GP1;									// (Gate Position 1) Это  позиция ворот первого игрока
+	Vector3 GP2;									// (GatePosition 2) Это позиция ворот второго игрока
+	float WidthGate;								// Ширина ворот
+	public bool GoalTrue = false;					// Становиться правда если комуто был забит гол
+	public byte LastGoal;							// Номер последних ворот в которые был забит гол
+
+
+	void Start () 
+	{
+		SC = GameObject.Find("StoreContent").GetComponent<StoreContent>();		// Находим в сцене скрипт StoreContent и ложим в переменную SC
+		Kep = GetComponent<Keeper>();											// Находим компонент "Keeper" и ложим его в переменную Kep
+	}
+
+
+	public void CallCalculation()									// Метод вызываеться из скрипта Keeper когда там загрузяться все переменные из сохранения
+	{
+		CalculatePosObjects();										// Расчитываем позиции объектов
+		SetStartPositions();										// Расставляем выбранные объекты по своим местам
+	}
+
+
+	void CalculatePosObjects()			// Этот метод на основе разных параметров определяет позиции объектов
+	{
+		byte LevelTable = GameObject.FindWithTag("Table").GetComponent<ObjectScript>().LevelTable;			// Получаем уровень стола и присваиваем этот уровень переменной LevelTable
+		float WasherSize = SC.ObjectsStore[Kep.FPLastModels[1]].GetComponent<MeshRenderer>().bounds.size.x;	// Получаем размер шайбы
+		float FP = SC.ObjectsStore[Kep.FPLastModels[0]].GetComponent<MeshRenderer>().bounds.size.x;			// Получаем диаметр биты 1 игрока
+		float SP = 0;														// Диаметр биты второго игрока в начале 0
+		WidthGate = (float)(((LevelTable-1) * 110) * 0.04 + 4);				// Ширина ворот для данного поля
+		if(GameMode == Mode.Passage)										// Если режим игры прохождение
+		{
+			SP = AIBat.GetComponent<MeshRenderer>().bounds.size.x;			// Получаем диаметр шайбы компьютерного противника и присваиваем как диаметр биты второго игрока
+			float LOTF = (float)(((LevelTable-1) * 25) * 0.18  + 18) / 2;	// Вычисляем длинну от центра поля до ворот и присваиваем переменной её переменной LOTF(LengthOfThisField)
+
+			if(Kep.RightSide == true)										// Если переменная "Правая сторона" правда
+			{
+				SPP1 = new Vector3(LOTF + 0.1f, 0, 0);						// Назначаем первому игроку позицию с права
+				GP1 = new Vector3(LOTF + 0.6f, 0, 0);						// И его ворота с права
+				SPP2 = new Vector3(LOTF - LOTF*2 -0.1f, 0, 0);				// А второму игроку позицию слева
+				GP2 = new Vector3(LOTF - LOTF*2 - 0.6f, 0, 0);				// И его ворота слева
+				FirstPos.x = SPP1.x-(FP/2)-0.5f-(WasherSize/2);				// Первая позиция шайбы это позиция первого игрока - его радиус - условленное расстояние - радиус шайбы
+				SecondPos.x = SPP2.x+(SP/2)+0.5f+(WasherSize/2);			// Вторая позиция шайбы это позиция второго игрока + его радиус + условленное расстояние + радиус шайбы
+			}
+			else 															// Иначе если переменная "Правая сторона" ложь
+			{
+				SPP1 = new Vector3(LOTF - LOTF*2 -0.1f, 0, 0);				// Назначаем первому игроку позицию с лева
+				GP1 = new Vector3(LOTF - LOTF*2 - 0.6f, 0, 0);				// И его ворота с лева
+				SPP2 = new Vector3(LOTF + 0.1f, 0, 0);						// А второму игроку позицию справа
+				GP2 = new Vector3(LOTF + 0.6f, 0, 0);						// И его ворота справа
+				FirstPos.x = SPP1.x+(FP/2)+0.5f+(WasherSize/2);				// Первая позиция шайбы это позиция первого игрока - его радиус - условленное расстояние - радиус шайбы
+				SecondPos.x = SPP2.x-(SP/2)-0.5f-(WasherSize/2);			// Вторая позиция шайбы это позиция второго игрока + его радиус + условленное расстояние + радиус шайбы
+			}
+		}
+		else if (GameMode == Mode.PlayerVsPlayer)							// Если режим игры игрок против игрока
+		{
+
+		}												
+	}
+
+
+	void SetStartPositions()	// Этот метод расставляет объекты согласно настройкам игры
+	{
+		Player1 = Instantiate(SC.ObjectsStore[Kep.FPLastModels[0]], SPP1, Quaternion.identity) as GameObject;	// Ставим 1 биту на просчитанную позицию для первого игрока
+		Player2 = Instantiate(AIBat, SPP2, Quaternion.identity) as GameObject;									// Ставим 2 биту на просчитанную позицию второго игрока
+
+		if(GameMode == Mode.Passage)	// Если режим игры прохождение
+		{
+			Player1.AddComponent<PlayerController>();													// Вешаем на первую биту скрипт управления битой
+			Player1.GetComponent<PlayerController>().NomberPlayer = 1;									// Присваиваем переменной NomberPlayer этого скрипта значение 1
+
+			Player2.AddComponent<ArtificialIntelligence>();												// Вешаем на вторую биту скрипт управления компьютером
+		
+			Puck = Instantiate(SC.ObjectsStore[Kep.FPLastModels[1]]) as GameObject;						// Ставим выбранную шайбу в нулевые координаты и заносим ссылку на неё в переменную puck
+			Puck.AddComponent<Puck>();																	// Вешаем на шайбу скрипт шайбы
+
+			G1 = Instantiate(Gate, GP1, Quaternion.identity) as GameObject;								// Инстантируем ворота 1 игрока по просчитанной позиции
+			G2 = Instantiate(Gate, GP2, Quaternion.identity) as GameObject;								// Инстантируем ворота 2 игрока по просчитанной позиции
+			G2.transform.localScale = G1.transform.localScale = new Vector3(0.8f, 0.5f, WidthGate);		// Присваиваем обоим воротам просчитанную ширину
+
+			G1.GetComponent<GateTrigger>().PlayerGate = 1;												// Указываем 1 воротам что они ворота 1 игрока
+			G2.GetComponent<GateTrigger>().PlayerGate = 2;												// Указываем 2 воротам что они ворота 2 игрока
+
+			// И вешаем на шайбу скрипт котроля шайбы
+
+		}
+		else if(GameMode == Mode.PlayerVsPlayer)														// Если режим игры игрок против игрока
+		{
+			// Вешаем на вторую биту скрипт управления битой
+			// Присваиваем переменной NomberPlayer этого скрипта значение 1
+		}
+	}
+
+
+	public void ChangePos()
+	{
+		Destroy(Player1);		// Уничтожаем биту первого игрока на сцене
+		Destroy(Player2);		// Уничтожаем биту второго игрока на сцене
+		Destroy(Puck);			// Уничтожаем шайбу на сцене
+		CalculatePosObjects();	// Высчитываем заного позиции объектов
+		SetStartPositions();	// Заного расставляем их по местам
+	}
+
+
+	public void CallStartLevelEvent()				// Этот метод вызываеться один раз чтобы вызвать событие старта уровня
+	{
+		if(StartLevelEvent != null)					// Если в списке события StartLevelEvent есть подписанные на него методы
+			StartLevelEvent();						// Вызываем StartLevelEvent
+	}
+
+
+	public IEnumerator CallGoalEvent(byte NomberGate)			// Этот метод вызываеться один раз чтобы вызвать событие гола
+	{
+		LastGoal = NomberGate;									// Присваиваем переменной LastGoal номер ворот в который был забит гол
+		if(LastGoal == 1)										// Если гол игроку 1
+			PM.ScorePlayer1 ++;									// Засчитываем гол игроку 1
+		else if(LastGoal == 2)									// Иначе если гол игроку 2
+			PM.ScorePlayer2 ++;									// Засчитываем Гол Игроку 2
+		if(PM.ScorePlayer1 < 3 & PM.ScorePlayer2 < 3)			// Если у первого и у второго игрока насчитываеться меньше трёх голов
+		{
+			if(GoalEvent != null)								// Если в списке события GoalEvent есть подписанные на него методы
+				GoalEvent();									// Вызываем событие GoalEvent
+
+		}
+		else if(PM.ScorePlayer1 == 3 | PM.ScorePlayer2 == 3)	// Если у одного из игроков уже три гола
+		{
+			yield return new WaitForSeconds(1);						// Ждём одну секунду
+			LastGoalEvent();										// Вызываем событие LastGoalEvent
+		//	StartCoroutine(EndGoal());								// Вызываем коронтину последний гол
+		//	PM.Window = GameMenuWins.Finish;						// Выводим окно финиш
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

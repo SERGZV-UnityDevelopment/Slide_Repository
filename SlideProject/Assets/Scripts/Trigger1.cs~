@@ -1,0 +1,60 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class Trigger1 : MonoBehaviour
+{
+	public GameManager Gm;
+	public Chip Ch;
+	public Player1 P1;
+	public Player2 P2;
+	public PauseMenu PMenu;
+	public AudioClip Ovations;
+	public AudioClip Whistle;
+	Vector3 GCP = new Vector3(-12.25f, 0.08f, 0f);	// "Goal Chip Position" Позиция фишки после гола 
+
+
+	void OnTriggerEnter(Collider Col)
+	{
+		if(Col.gameObject.tag == "Washer") // если фишка коснёться соллайдера 1
+		{
+			GetComponent<AudioSource>().PlayOneShot(Ovations); // выводим звук гол
+			PMenu.ScorePlayer2 ++;       // одно очко зачислиться игроку 2
+			P1.PlayerControl_1 = false;  // отбираем управление у игрока 1
+			P2.PlayerControl_2 = false;  // отбираем управление у игрока 2
+			P1.SpeedP1 = true;           // устанавливаем на пару мгновений скорость игрока 1 равной нулю
+			P2.SpeedP2 = true;			 // устанавливаем на пару мгновений скорость игрока 2 равной нулю
+			Ch.CSSV = true;              // устанавливаем на пару мгновений скорость и вращение фишки 0
+
+			if(PMenu.ScorePlayer2 < 3)
+			{
+				StartCoroutine(Cycle()); // вызываем нумератор "Цикл"
+			}
+
+			if(PMenu.ScorePlayer2 >= 3)
+			{
+				StartCoroutine(End());	//	Вызываем нумератор "Конец"
+			}
+		}
+	}
+
+	IEnumerator Cycle ()
+	{
+		yield return new WaitForSeconds(1);					// что произойдёт через 1 секунду
+		PMenu.Scoregoal = 1;                				// пишем в переменную что гол игроку 1
+		PMenu.Window = GameMenuWins.Goal;   				// вызываем окно счёта
+		Gm.PSSP = true;                     				// помещаем игроков на стартовые позиции
+		Ch.transform.position = GCP; 						// Помещаем фишку рядом с игроком 2
+		yield return new WaitForSeconds(3); 				// Ждём три секунды
+		PMenu.Window = 0;           						// убираем с экрана счёт
+		GetComponent<AudioSource>().PlayOneShot(Whistle);   // выводим звук на старт
+		P1.PlayerControl_1 = true;          				// возвращаем управление у игроку 1
+		P2.PlayerControl_2 = true;          				// возвращаем управление у игроку 2
+	}
+
+	IEnumerator End ()
+	{
+		yield return new WaitForSeconds(1);					// Ждём одну секунду
+		PMenu.Window = GameMenuWins.Finish;					// Выводим окно финиш
+	}
+	
+}

@@ -1,0 +1,85 @@
+﻿// Скрипт шайбы отвечающий за все действия и реакции шайбы в игре
+
+using UnityEngine;
+using System.Collections;
+
+
+public class Puck : MonoBehaviour 
+{
+	public GameManager GM;				// Переменная для скрипта GameManager
+	public int WasherPosition; 			// Переменная "Позиция фишки" нужна чтобы при старте определить у кого из игроков появиться фишка
+	public float Radius;						// Радиус шайбы
+	float PathLenght;					// Длинна пути от точки просчёта до точки где столкнулься луч с коллайдером
+	Vector3 StartPath;					// Позиция где высчитывалься путь до столкновения
+	Vector3 MoveVector;					// Вектор движения
+	Vector3 ReflectVector;				// Вектор отражения от точки куда удариться шайба
+	RaycastHit Hit;						// Точка куда ударилься рейкаст
+	Rigidbody PuckRb;					// Это Rigidbody шайбы
+	int layerMask = 1<<8;				// Побитовое обозначение слоя для столкновения луча
+
+
+	void Awake()
+	{
+		GM = GameObject.Find("GameManager").GetComponent<GameManager>();	// Ложим в переменную GM скрипт GameManager с пустышки на сцене под темже именем GameManager
+		GM.GoalEvent += Goal;												// Подписываем метод гол на событие GoalEvent
+		GM.StartLevelEvent += StartLevel;									// В список события StartLevelEvent добавляем метод StartLevel
+		WasherPosition = Random.Range (1, 3); 								// генерируем случайным образом число от 1 или 2
+		PuckRb = GetComponent<Rigidbody>();									// Ложим Rigitbody в переменную PuckRb	
+		Radius = GetComponent<MeshRenderer>().bounds.size.x/2;				// Узнаём радиус шайбы
+	}
+	
+
+	void FixedUpdate()																								// Этот метод вызываеться с постоянной частотой определённое в насройках Unity количество раз в секунду
+	{
+		MoveVector = Vector3.Normalize(PuckRb.velocity);															// Вычисляем нормализоыванный вектор движения
+		Physics.SphereCast(new Ray(transform.position, MoveVector), Radius, out Hit, Mathf.Infinity, layerMask);	// Пускаем толстый райкаст размером со всю шайбу и возвращаем результат столкновения луча в переменную Hit
+		if(Hit.distance != 0 && Hit.distance <= 0.06f)																// Если от шайбы до борта дистанция меньше или равна 0.06 метра
+		{
+			PuckRb.velocity = Vector3.Reflect(PuckRb.velocity, Hit.normal);											// Высчитываем вектор который будет после отражения и присваиваем вектору ReflectVector
+		}
+	}
+
+
+//-----------------------------------------------------------------------------------------Событие старта уровня-----------------------------------------------------------------------------------------------------------------
+
+
+	void StartLevel()
+	{
+		if(WasherPosition == 1)										// И переменная позиция шайбы равна 1
+			transform.position = GM.FirstPos;						// Ставим шайбу в первую позицию
+		if(WasherPosition == 2)										// Если переменная позиция шайбы равна 2
+			transform.position = GM.SecondPos;						// Ставим шайбу во вторую позицию
+		StartPath = transform.position;								// Присваиваем переменной StartPath текущую позицию шайбы
+	}
+
+
+//----------------------------------------------------------------------------------------------Событие гола---------------------------------------------------------------------------------------------------------------------
+
+
+	void Goal()																// Этот метод вызываеться один раз во время гола
+	{
+		GetComponent<Rigidbody>().velocity = new Vector3(0,0,0);			// Ставим скорость шайбы во всех направлениях 0
+		GetComponent<Rigidbody>().angularVelocity = new Vector3 (0,0,0);	// Ставим вращение шайбы во всех направлениях 0
+		StartCoroutine(AfterGoal());										// Вызываем коронтину AfterGoal	
+	}
+
+
+	IEnumerator AfterGoal()													// Этот метод вызываеться после выполнения метода гол
+	{
+		yield return new WaitForSeconds(4);									// Ждём секунду
+		if(GM.LastGoal == 1)												// Если гол игроку 1
+			transform.position = GM.FirstPos;								// Помещаем фишку в первую просчитанную позицию
+		else if(GM.LastGoal == 2)											// Если гол игроку 2
+			transform.position = GM.SecondPos;								// Помещаем фишку во вторую просчитанную позицию
+	}
+
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+
+	void OnDisable()
+	{
+		GM.StartLevelEvent -= StartLevel;					// Отписываем метод StartLevel от события StartLevelEvent
+		GM.GoalEvent -= Goal;								// Отписываем метод гол от события GoalEvent
+	}
+}

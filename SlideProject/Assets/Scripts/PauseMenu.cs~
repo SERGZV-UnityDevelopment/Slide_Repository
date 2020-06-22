@@ -1,0 +1,476 @@
+﻿// Это скрипт для отрисовки меню паузы и других иконок в процессе игры
+using UnityEngine;
+using System;
+using System.IO;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+
+
+public class PauseMenu : MonoBehaviour 
+{
+//-----------------------------------------------------------Текстуры меню паузы------------------------------------------------------------------
+	public Texture2D BlackOut;								// Затенение
+	public Texture2D RightFrameProfile;						// Рамка для элементов левого профиля
+	public Texture2D FrameForAvatar;						// Рамка для аватара
+	public Texture2D Conformation;							// Окно подтверждения
+	public Texture2D BoxPauseMenu;							// Окно паузы
+	public Texture2D WindowInventory;						// Текстура для окна инвентаря
+	public Texture2D OverviewWindowObject;					// Текстура окошка обзора 3D предмета в меню объекта
+	public Texture2D BoxScore;								// Окно очков показываемое при забитии гола
+	public Texture2D PauseBoxScore;							// Окно очков показываемое при вызове паузы
+	public Texture2D WindowLevelSetting;					// Окно настройки уровня
+	public Texture2D Inactive;								// Кнопка указывающая что эта сторона не активна для первого игрока
+	public Texture2D Active;								// Кнопка указывающая что эта сторона активна для первого игрока
+	public Texture2D NotExist;								// Стандартная текстура для несуществующих объектов в магазине
+	public Texture2D TexSelSkinButtonDown;					// Текстура активной кнопки выбора скина
+	public Texture2D TexSelImprButtonDown;					// Текстура активнной кнопки выбора улучшения
+//----------------------------------------------------------------------------------Общие данные для инвентаря-------------------------------------------------------------------------------------------------------------------
+	string[] LvlToolbar	= new string[] {"1Lvl","2Lvl","3Lvl","4Lvl","5Lvl"};	// Массив строк для уровней товаров магазина
+	int ActiveLvl = 0;															// Активный уровень в инвентаре
+	int ActiveCell = 0;															// Активная ячейка в инвентаре
+	byte ActiveSkin = 0;														// Выделенная ячейка материала в инвентаре
+	byte ActiveImpr = 0;														// Выделенное ячейка улучшения в инвентаре
+	Rect[] PosIconSkins = new Rect[10];											// Позиции иконок покупки скинов(Материалов)
+	Rect[] PosIconImprs = new Rect[10];											// Позиции иконок покупки улучшений
+	List<Texture2D>Skins=new List<Texture2D>();									// Изображения для кнопок материалов выбранного объекта
+	List<Texture2D>Imprvs=new List<Texture2D>();								// Изображения для кнопок улучшений выбранного объекта
+	Texture2D[] Texs = new Texture2D[25];										// Изображения ячеек просматриваемой категории инвентаря
+//----------------------------------------------------------------------------------Данные для инвентаря 1 игрока----------------------------------------------------------------------------------------------------------------
+	Texture2D[] Buts = new Texture2D[125];		// Массив текстур для раздела биты инвентаря 1 игрока
+	Texture2D[] Washers = new Texture2D[125];	// Массив текстур для раздела шайбы инвентаря 1 игрока
+	Texture2D[] Tables = new Texture2D[125];	// Массив текстур для раздела столы инвентаря 1 игрока
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	public GameManager GM;					// Переменная для скрипта GameManager			
+	StoreContent SC;						// Переменная для скрипта "Контент магазина"
+	public int ScorePlayer1 = 0;			// Переменная "Голы игроку 1" нужна для того чтобы подсчитывать голы забитые "игроку 1"
+	public int ScorePlayer2 = 0;			// Переменная "Голы игроку 2" нужна для того чтобы подсчитывать голы забитые "игроку 2"
+	public UserCursor UC;					// Переменная для скрипта "Пользовательский курсор"
+	Keeper Kep;								// Переменная для скрипта "Хранитель"							
+	public GUISkin GameSkin;				// Скин для всех гуи элементов
+	public GameMenuWins Window;				// Переменная перечисление указывающая какое сейчас показываеться окно
+	public GUIStyle LabelScoreStyle;		// Маленькое окно очков
+	public GUIStyle ScoreStyle;
+	public GUIStyle ScoreGoalStyle;			
+	public GUIStyle Neon;					// Стиль неоновых цифр отображающих реальное время
+	public int Scoregoal;					// Переменная хранящая кому был забит последний гол
+	float Min = 0,Sec = 0;					// Переменные для перевода времени в строку
+	string Rhour, Rminute, Rsecond;			// Реальные час минута и секунда
+	string Minute, Second;					// Минуты и секунды теущего раунда
+	string RealTime;						// Эта переменная отображает реальное время
+	string RoundTime;						// Эта переменная отображает время текущего раунда
+	float OriginalHight = 1080; 			// Заносим а переменную OriginalHight высоту экрана в которой разрабатывалась игра
+	float RatioH;							// Сюда заноситься результат деления оригинальной высоты экрана на текущую
+
+
+	// Проверить все переменные текстур на нужность
+	// Переместить все стили в гуи стиль
+	void Awake()
+	{
+		GM.GoalEvent += Goal;				// Подписываем метод гол на событие GoalEvent
+	}
+
+
+	void Start()
+	{	
+		Kep = GetComponent<Keeper>();													// Ложим в переменную Kep скрипт Keeper
+		Kep.path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);	// Создаём/получаем путь к папке мои документы
+		Cursor.visible = false;															// Делаем стандартный Windows курсор невидимым
+		RatioH = Screen.height / OriginalHight;											// Заносим в ScreenBalansHight результат деления высот экранов
+		SC = GameObject.Find("StoreContent").GetComponent<StoreContent>();				// Находим в сцене скрипт StoreContent и ложим в переменную SC
+		InvokeRepeating("StopWatch", 0.4f, 1);											// Запускаем секундомер											
+	}
+
+
+	void Update()
+	{
+		Clock();
+
+		if(Input.GetKeyDown(KeyCode.Escape))
+		{
+//			switch(Window)
+//			{
+//			case 0:
+//				Window = 1;
+//				break;
+//			case 1:
+//				Window = 0;
+//				break;
+//			case 2:
+//				Window = 1;
+//				break;
+//			case 3:
+//				Window = 1;
+//				break;
+//			}
+		}
+	}
+
+	
+	void Clock()	// Этот метод обновляет реальное время на каждый кадр
+	{
+		Rhour = DateTime.Now.Hour.ToString("<color='#00fc00'>00</color>");
+		Rminute = DateTime.Now.Minute.ToString("<color='#00fc00'>00</color>");
+		Rsecond = DateTime.Now.Second.ToString("<color='#00fc00'>00</color>");
+		RealTime = Rhour + "<color='#00fc00'> : </color>" + Rminute + "<color='#00fc00'> : </color>" + Rsecond;
+	}
+
+
+	void StopWatch()	// Этот метод запускает и отсчитывает время от начала до конца раунда
+	{
+		Sec ++;
+		if(Sec > 59)
+		{
+			Sec = 0;
+			Min ++ ;
+		}
+		Minute = Min.ToString("<color='#00fc00'><size=40>00</size></color>");
+		Second = Sec.ToString("<color='#00fc00'><size=40>00</size></color>");
+		RoundTime = Minute + "<color='#00fc00'><size=50> : </size></color>" + Second;
+	}
+	
+
+	void OnGUI()
+	{
+		GUI.depth = 1;						// Устанавливаем дальность гуи от камеры
+		GUI.skin = GameSkin;				// Устанавливаем игровой скин
+		if(Window == GameMenuWins.Start)	// Это окно настройки уровня показываеться каждый раз при старте любого уровня
+		{
+			Time.timeScale = 0;				// Скорость течения времени ставим на 0
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect( -135, -450, 271, 306), WindowLevelSetting);// Начинаем группу и отрисовываем окно настройки уровня
+			if(GUI.Button(new Rect(100, 8, 100, 40), "Старт","StartButton"))	
+			{
+				Window = GameMenuWins.Game;										// То активным становиться окно игры
+				GM.CallStartLevelEvent();										// Вызываем метод вызывающий событие
+			}
+			if(Kep.Activate)													// Когда переменная Activate стала правда
+			{	
+				// Если кнопка выбора стороны была нажата			
+				if(GUI.Button(new Rect(21, 18, 60, 30), "", "ButtonInvert"))					
+				{
+					Kep.RightSide = Kep.RightSide ?  false : true;				// Меняем значение переменной при нажатии кнопки
+					GM.ChangePos();												// Вызываем метод изменения позиции бит
+				}
+				if(GUI.Button(new Rect(21, 56, 104, 104), Kep.FPLMA[0],"ButtonElementSelection"))	// Если кнопка выбора биты была нажата
+				{
+					Window = GameMenuWins.ButSel;								// То активным становиться окно ButSel
+				}
+				if(GUI.Button(new Rect(146, 56, 104, 104), Kep.FPLMA[1],"ButtonElementSelection"))	// Если кнопка выбора шайбы была нажата
+				{
+					Window = GameMenuWins.WashSel;								// То активным становиться окно WashSel
+				}
+				if(GUI.Button(new Rect(21, 181, 104, 104), Kep.FPLMA[2],"ButtonElementSelection"))	// Если кнопка выбора стола была нажата
+				{
+					Window = GameMenuWins.TableSel;								// То активным становиться окно TableSel
+				}
+				if(GUI.Button(new Rect(146, 181, 104, 104), Kep.FPLMA[3],"ButtonElementSelection"))	// Если кнопка выбора скайбокса была нажата
+				{
+					Window = GameMenuWins.SkySel;								// То активным становиться окно SkySel
+				}
+			}
+			if(Kep.RightSide == true)											// Если переменная LeftSide равна ложь
+			{
+				GUI.DrawTexture(new Rect(21, 8, 30, 10), Inactive);				// То неактивная лампочка слева
+				GUI.DrawTexture(new Rect(51, 8, 30, 10), Active);				// А активная справа
+			}
+			else 																// Если переменная LeftSide равна правда
+			{
+				GUI.DrawTexture(new Rect(21, 8, 30, 10), Active);				// То активная лампочка слева
+				GUI.DrawTexture(new Rect(51, 8, 30, 10), Inactive);				// А неактивная справа
+			}
+			
+			GUI.EndGroup();
+		}
+
+		if(Window == GameMenuWins.ButSel)	// Окно выбора активной биты
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-409, -335, 817, 614), WindowInventory);			// Начинаем группу инвентаря "выбора биты"
+			GUI.DrawTexture(new Rect(532, 30, 280, 280), OverviewWindowObject);			// Отрисовываем окно обзора предмета
+			GUI.Label(new Rect(385, 10, 140, 40), Kep.FPScore + "", "TotalScoreText");	// Отрисовываем количество денег
+			if(GUI.Button(new Rect(5, 5, 52, 52), "<Size=30><</Size>", "SquareButton"))	// По нажатии на кнопку назад
+			{
+				Window = GameMenuWins.Start;											// Переходим в окно старта игры
+			}
+			GUI.Label(new Rect(160, 15, 200, 30), "<Size=25><Color=black>Купленные биты</Color></Size>");// Текст Купленные биты
+			GUI.Label(new Rect(595, 5, 300, 25), "<Color=black>Обзор биты</Color>");					 // Текст обзор предмета
+			GUI.Label(new Rect(648, 310, 200, 20), "<Size=15><Color=black>Скины</Color></Size>");		 // Текст скины
+			GUI.Label(new Rect(630, 455, 200, 20), "<Size=15><Color=black>Улучшения</Color></Size>");	 // Текст улучшения
+			ActiveLvl = GUI.Toolbar(new Rect(5, 60, 520, 30), ActiveLvl, LvlToolbar, "ButtonLevel"); 	 // Выбор уровня предмета
+			// Отрисовываем ячейки
+			ActiveCell = GUI.SelectionGrid(new Rect(5, 89, 520, 520),ActiveCell, Texs, 5,"ButtonElementSelection");  
+			// Отрисовываем скины
+			ActiveSkin = RenderGroup(PosIconSkins, ActiveSkin, Skins, TexSelSkinButtonDown, "SelectionSkinButton");	  
+			// Рисуем улучшения
+			ActiveImpr = RenderGroup(PosIconImprs, ActiveImpr, Imprvs, TexSelImprButtonDown, "SelectionImprovementButton");	
+			GUI.EndGroup();																				 // Заканчиваем группу
+		}
+
+		if(Window == GameMenuWins.WashSel)	// Окно выбора активной шайбы
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-409, -335, 817, 614), WindowInventory);		// Начинаем группу инвентаря "выбора биты"
+			GUI.DrawTexture(new Rect(532, 30, 280, 280), OverviewWindowObject);			// Отрисовываем окно обзора предмета
+			GUI.Label(new Rect(385, 10, 140, 40), Kep.FPScore + "", "TotalScoreText");		// Отрисовываем количество денег
+			if(GUI.Button(new Rect(5, 5, 52, 52), "<Size=30><</Size>", "SquareButton"))	// По нажатии на кнопку назад
+			{
+				Window = GameMenuWins.Start;											// Переходим в окно старта игры
+			}
+			GUI.Label(new Rect(130, 15, 220, 30), "<Size=25><Color=black>Купленные шайбы</Color></Size>");// Текст шайбы
+			GUI.Label(new Rect(610, 5, 300, 25), "<Color=black>Обзор шайбы</Color>");					 // Текст обзор предмета
+			GUI.Label(new Rect(648, 310, 200, 20), "<Size=15><Color=black>Скины</Color></Size>");		 // Текст скины
+			GUI.Label(new Rect(630, 455, 200, 20), "<Size=15><Color=black>Улучшения</Color></Size>");	 // Текст улучшения
+			ActiveLvl = GUI.Toolbar(new Rect(5, 60, 520, 30), ActiveLvl, LvlToolbar, "ButtonLevel"); 	 // Выбор уровня предмета
+			// Отрисовываем ячейки
+			ActiveCell = GUI.SelectionGrid(new Rect(5, 89, 520, 520),ActiveCell, Texs, 5,"ButtonElementSelection");  
+			// Отрисовываем скины
+			ActiveSkin = RenderGroup(PosIconSkins, ActiveSkin, Skins, TexSelSkinButtonDown, "SelectionSkinButton");	  
+			// Рисуем улучшения
+			ActiveImpr = RenderGroup(PosIconImprs, ActiveImpr, Imprvs, TexSelImprButtonDown, "SelectionImprovementButton");	
+			GUI.EndGroup();	
+		}
+
+		if(Window == GameMenuWins.TableSel)	// Окно выбора активного стола
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-409, -335, 817, 614), WindowInventory);		// Начинаем группу инвентаря "выбора биты"
+			GUI.DrawTexture(new Rect(532, 30, 280, 280), OverviewWindowObject);			// Отрисовываем окно обзора предмета
+			GUI.Label(new Rect(385, 10, 140, 40), Kep.FPScore + "", "TotalScoreText");		// Отрисовываем количество денег
+			if(GUI.Button(new Rect(5, 5, 52, 52), "<Size=30><</Size>", "SquareButton"))	// По нажатии на кнопку назад
+			{
+				Window = GameMenuWins.Start;											// Переходим в окно старта игры
+			}
+			GUI.Label(new Rect(130, 15, 220, 30), "<Size=25><Color=black>Купленные столы</Color></Size>");// Текст столы
+			GUI.Label(new Rect(610, 5, 300, 25), "<Color=black>Обзор стола</Color>");					 // Текст обзор предмета
+			GUI.Label(new Rect(648, 310, 200, 20), "<Size=15><Color=black>Скины</Color></Size>");		 // Текст скины
+			GUI.Label(new Rect(630, 455, 200, 20), "<Size=15><Color=black>Улучшения</Color></Size>");	 // Текст улучшения
+			ActiveLvl = GUI.Toolbar(new Rect(5, 60, 520, 30), ActiveLvl, LvlToolbar, "ButtonLevel"); 	 // Выбор уровня предмета
+			// Отрисовываем ячейки
+			ActiveCell = GUI.SelectionGrid(new Rect(5, 89, 520, 520),ActiveCell, Texs, 5,"ButtonElementSelection");  
+			// Отрисовываем скины
+			ActiveSkin = RenderGroup(PosIconSkins, ActiveSkin, Skins, TexSelSkinButtonDown, "SelectionSkinButton");	  
+			// Рисуем улучшения
+			ActiveImpr = RenderGroup(PosIconImprs, ActiveImpr, Imprvs, TexSelImprButtonDown, "SelectionImprovementButton");	
+			GUI.EndGroup();	
+		}
+
+		if(Window == GameMenuWins.SkySel)	// Окно выбора активного скайбокса
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-409, -335, 817, 614), WindowInventory);		// Начинаем группу инвентаря "выбора биты"
+			GUI.DrawTexture(new Rect(532, 30, 280, 280), OverviewWindowObject);			// Отрисовываем окно обзора предмета
+			GUI.Label(new Rect(385, 10, 140, 40), Kep.FPScore + "", "TotalScoreText");		// Отрисовываем количество денег
+			if(GUI.Button(new Rect(5, 5, 52, 52), "<Size=30><</Size>", "SquareButton"))	// По нажатии на кнопку назад
+			{
+				Window = GameMenuWins.Start;											// Переходим в окно старта игры
+			}
+			GUI.Label(new Rect(120, 15, 240, 30), "<Size=25><Color=black>Купленные системы</Color></Size>");// Текст системы
+			GUI.Label(new Rect(610, 5, 300, 25), "<Color=black>Обзор системы</Color>");					 // Текст обзор предмета
+			GUI.Label(new Rect(648, 310, 200, 20), "<Size=15><Color=black>Скины</Color></Size>");		 // Текст скины
+			GUI.Label(new Rect(630, 455, 200, 20), "<Size=15><Color=black>Улучшения</Color></Size>");	 // Текст улучшения
+			ActiveLvl = GUI.Toolbar(new Rect(5, 60, 520, 30), ActiveLvl, LvlToolbar, "ButtonLevel"); 	 // Выбор уровня предмета
+			// Отрисовываем ячейки
+			ActiveCell = GUI.SelectionGrid(new Rect(5, 89, 520, 520),ActiveCell, Texs, 5,"ButtonElementSelection");  
+			// Отрисовываем скины
+			ActiveSkin = RenderGroup(PosIconSkins, ActiveSkin, Skins, TexSelSkinButtonDown, "SelectionSkinButton");	  
+			// Рисуем улучшения
+			ActiveImpr = RenderGroup(PosIconImprs, ActiveImpr, Imprvs, TexSelImprButtonDown, "SelectionImprovementButton");	
+			GUI.EndGroup();	
+		}
+
+		if(Window == GameMenuWins.Game)		// Окно 0 работает когда идёт игра
+		{
+			Time.timeScale = 1;				// Устанавливаем скорость течения времени на нормально
+			UC.SetCursorVisible = false;	// Делаем пользовательский курсор  невидимым
+
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего левого края экрана
+			GUI.matrix = Matrix4x4.TRS(new Vector3(0, Screen.height,0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+			GUI.DrawTexture(new Rect(10, -140, 128, 128), FrameForAvatar);						// Рисуем портрет игрока с лева 
+			GUI.Label(new Rect(150, -40, 270, 30), "AQWSDERFGTYHJUIKLOPM", "FirstPlayerName");	// Пишем ник игрока 1
+
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего правого края экрана
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width, Screen.height,0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+
+			GUI.DrawTexture(new Rect(-450, -150, 450, 150), RightFrameProfile);					// Рисуем портрет игрока с права
+			GUI.DrawTexture(new Rect(-140, -140, 128, 128), FrameForAvatar);					// Рисуем Портрет игрока 2
+			GUI.Label(new Rect(-420, -40, 270, 30), "AQWSDERFGTYHJUIKLOPM", "SecondPlayerName");// Пишем ник игрока 2
+
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.Label(new Rect(-65,20,20,20), RoundTime, Neon);									// Рисуем часы (Время раунда)
+		}
+
+		if(Window == GameMenuWins.Pause) // Окно это окно паузы
+		{
+			// немного ниже после каждого гола меньшими цифрами отрисовываеться время раунда.
+
+			Time.timeScale = 0;			// Останавливаем время
+			UC.SetCursorVisible = true;	// Делаем пользовательский курсор видимым
+
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего левого края экрана
+			GUI.matrix = Matrix4x4.TRS(new Vector3(0, Screen.height,0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+			GUI.DrawTexture(new Rect(10, -140, 128, 128), FrameForAvatar);							// Рисуем Портрет игрока 1
+			
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего правого края экрана
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width, Screen.height,0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+			GUI.DrawTexture(new Rect(-140, -140, 128, 128), FrameForAvatar);						// Рисуем Портрет игрока 1
+
+			GUI.matrix = Matrix4x4.identity;													// Ставим матрицу по умолчанию 
+			GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), BlackOut);			// Рисуем окно затемнения
+
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.DrawTexture(new Rect(-250, 45, 500, 100),PauseBoxScore);						// Рисуем окно очков паузы
+			GUI.Label(new Rect(-190, 96, 0, 0), "Общий счёт", ScoreStyle);					// Рисуем текст "общий счёт"
+			GUI.Label(new Rect(120, 94, 0, 0), "-", ScoreStyle);							// Рисуем тире счёта игроков в меню паузы
+			GUI.Label(new Rect(90, 97, 0, 0), ""+ScorePlayer1, ScoreStyle);					// Рисуем очки первого игрока в меню паузы
+			GUI.Label(new Rect(140, 97, 0, 0),"" +ScorePlayer2, ScoreStyle);				// Рисуем очки второго игрока в меню паузы
+			GUI.DrawTexture(new Rect(-200, 270, 400, 500), BoxPauseMenu);					// Рисуем окно меню паузы					
+			if(GUI.Button(new Rect(-93, 345, 186, 42), "Продолжить"))		// Если была нажата кнопка "Продолжить"
+			{
+				Window = GameMenuWins.Game;									// Вызываем окно игры
+			}
+			if(GUI.Button(new Rect(-93, 415, 186, 42), "В главное меню"))	// Если была нажата кнопка "В главное меню"
+			{
+				// Сделать второй скрипт плюс как в главном меню и вместо вызова ещё одного окна будем отрисовывать окно подверждения поверх
+				// Window = 2;													// Вызываем окно подтверждения
+			}
+			if(GUI.Button(new Rect(-93, 695, 186, 42), "Выход из игры"))
+			{
+				// Сделать второй скрипт плюс как в главном меню и вместо вызова ещё одного окна будем отрисовывать окно подверждения поверх
+				// Window = 3;														// Вызываем окно подтверждения
+			}
+			GUI.Label(new Rect(-10,780,20,20), RealTime, Neon);					// Рисуем часы (Реальное время)
+		}
+																						
+	//	if(Window == 0)	// Окно 2 это окно подтверждения выхода в главное меню			
+	//	{
+	//		GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), TexArry[0]);		// Рисуем окно затемнения
+	//
+	//		// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+	//		GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+	//		GUI.DrawTexture(new Rect(-238, -100, 476, 140), TexArry[3]);											// Рисуем окошко подтверждения
+	//		GUI.Label(new Rect(0, -75, 0, 0), "<color='#00fc00'>Выйти в главное меню?</color>", "ConfurmationText");// Рисуем текст подтверждения			
+	//		if(GUI.Button(new Rect(-204, 10, 186, 42), "Да"))									// Рисуем кнопку "Да"
+	//		{
+	//			Application.LoadLevel(0);
+	//		}
+	//
+	//		if(GUI.Button(new Rect(18, 10, 186, 42), "Нет"))									// Рисуем кнопку "Нет"
+	//		{
+	//			Window = 1;
+	//		}
+	//	}
+
+	//	if(Window == 3)	// Окно 3 это окно подтверждения выхода из игры
+	//	{
+	//		GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), TexArry[0]);		// Рисуем окно затемнения
+	//
+	//		// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+	//		GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+	//		GUI.DrawTexture(new Rect(-238, -100, 476, 140), TexArry[3]);										// Рисуем окошко подтверждения
+	//		GUI.Label(new Rect(0, -75, 0, 0), "<color='#00fc00'>Выйти из игры?</color>", "ConfurmationText");	// Рисуем текст подтверждения
+	//		if(GUI.Button(new Rect(-204, 10, 186, 42), "Да"))									// Рисуем кнопку "Да"
+	//		{
+	//			Application.Quit();
+	//		}
+	//		
+	//		if(GUI.Button(new Rect(18, 10, 186, 42), "Нет"))									// Рисуем кнопку "Нет"
+	//		{
+	//			Window = 1;
+	//		}
+	//	}
+
+		if(Window == GameMenuWins.Goal)	// Это окно показываеться когда комуто был забит гол оно показывает счёт
+		{
+			GUI.DrawTexture(new Rect(390, 6, 500, 140), BoxScore);				// Рисуем большое окно очков
+			GUI.Label(new Rect(415, 20, 450, 70), "", LabelScoreStyle);			// Рисуем маленькое окно очков
+			GUI.Label(new Rect(807, 60, 0, 0), ""+Scoregoal, ScoreGoalStyle);	// Рисуем цифру показывающую кому был забит гол
+			GUI.Label(new Rect(440, 114, 0, 0), "Общий счёт", ScoreStyle);		// Рисуем текст "Общий счёт"
+			GUI.Label(new Rect(800, 112, 0, 0), "-", ScoreStyle);				// Рисуем тире между цифрами показывающими очки игроков
+			GUI.Label(new Rect(770, 115, 0, 0), ""+ScorePlayer1, ScoreStyle);	// Рисуем очки первого игрока
+			GUI.Label(new Rect(820, 115, 0, 0), ""+ScorePlayer2, ScoreStyle);	// Рисуем очки второго игрока
+		}
+			
+		if(Window == GameMenuWins.Finish)// Это окно показываеться когда матч закончен, выводиться общий счёт и предлогаеться выбрать действие.
+		{
+			Cursor.visible = true;												// Включаем курсор
+			GUI.DrawTexture(new Rect(390, 6, 500, 140), BoxScore);				// Рисуем окошко для счёта
+			GUI.Label(new Rect(450, 45, 0, 0), "Общий счёт", ScoreStyle);		// Рисуем текст "Общий счёт"
+			GUI.Label(new Rect(780, 42, 0, 0), "-", ScoreStyle);				// Рисуем тире в счёте игроков
+			GUI.Label(new Rect(750, 45, 0, 0), ""+ScorePlayer1, ScoreStyle);	// Рисуем очки первого игрока
+			GUI.Label(new Rect(800, 45, 0, 0), "" +ScorePlayer2, ScoreStyle);	// Рисуем очки второго игрока
+
+			if(GUI.Button(new Rect(425, 85, 120, 40), "Сыграть ещё раз"))
+			{
+				Application.LoadLevel(1);
+			}
+
+			if(GUI.Button(new Rect(580, 85, 120, 40), "В главное меню"))
+			{
+				Application.LoadLevel(0);
+			}
+
+			if(GUI.Button(new Rect(735, 85, 120, 40), "Выйти из игры"))
+			{
+				Application.Quit();
+			}
+		}
+	}
+
+
+	// Этот метод отрисовывает кнопки материалов либо улучшений и возвращает номер выбранного объекта
+	byte RenderGroup(Rect[] Rects, byte Selected, List<Texture2D> Textures, Texture2D Tex, GUIStyle Style)
+	{
+		for(byte a=0; a<Textures.Count ;a++)						// Продолжаем цикл пока у нас есть текстуры для отрисовки
+		{
+			if(a == Selected)										// Если в этом цикле мы наткнулись активную выбранную кнопку
+			{
+				GUI.DrawTexture(Rects[a], Tex);						// Отрисовываем псевдокнопку из бокса
+				GUI.DrawTexture(new Rect(Rects[a].position.x + 1, Rects[a].position.y + 1, 40, 40), Textures[a]);// Отрисовываем контент псевдокнопки
+			}
+			else if(GUI.Button(Rects[a], Textures[a], Style))		// Если одна из отрисовываемых кнопок была нажата 
+			{
+				Selected = a;										// Присваиваем переменной Selected номер кнопки
+			}
+			
+		}
+		if(Textures.Count <= 0)
+		{
+			GUI.Label(new Rect(568, 440, 200, 200), "<Color=black>Улучшения для этого объекта отсутствуют</Color>");
+		}
+		return Selected;
+	}
+
+
+
+//-----------------------------------------------------------------------------------------Событие гола--------------------------------------------------------------------------------------------------------------------------
+
+
+	void Goal()									// Этот метод вызываеться один раз во время гола
+	{
+		Scoregoal = GM.LastGoal;           		// пишем в переменную что гол игроку (Кому был забит гол)
+		StartCoroutine(AfterGoal());			// Вызываем коронтину AfterGoal					
+	}
+
+
+	IEnumerator AfterGoal()						// Этот метод вызываеться после выполнения метода гол
+	{
+		yield return new WaitForSeconds(1);		// Ждём 1 секунду
+		Window = GameMenuWins.Goal;   			// вызываем окно счёта
+		yield return new WaitForSeconds(3); 	// Ждём три секунды
+		Window = GameMenuWins.Game;       		// Запускаем окно игры
+	}
+
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+}
+

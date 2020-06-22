@@ -1,0 +1,1287 @@
+// Это скрипт для отрисовки главного меню
+
+/* 
+Подсказка 6 строк для отсчёта гуи с разных концов экрана с изменением размера гуи под размер экрана относительно его ширины
+
+// Изменяем размер матрицы под новый экран и оставляем отрисовку с левого верхнего края
+GUI.matrix = Matrix4x4.TRS(new Vector3(0, 0, 0), Quaternion.identity, new Vector3(RatioW, RatioW, 1));
+
+//Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с верхнего правого края экрана
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width, RatioH, 0),Quaternion.identity,new Vector3(RatioW, RatioW, 1);
+
+// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего левого края экрана
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.height, 0, 0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+
+// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с нижнего правого края экрана
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width, Screen.height, 0),Quaternion.identity,new Vector3(RatioH, RatioH, 1));
+
+// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с середины экрана по ширине и с верху по высоте
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+
+// Изменяем размер матрицы под новый экран и отрисовываем элементы гуи с середины экрана по ширине и с низу по высоте
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+	
+// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+*/
+
+using UnityEngine;
+using System;
+using System.IO;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+
+
+// 1) Дописать программу стартового окна и начала обучения (протестировать как работают обновлённая физика и скрипты управления)
+// 2) Доделать магазин
+// В скрипте лавное меню и меню паузы убрать закоментированные старые строчки кода, выяснить какие переменные необязательны быть публичными и 
+// сделать их приватными а также убрать лишние строчки кода во всех скриптах
+// Переместить методы по очереди мо смыслу и названиям в скрипте
+// тоже самое сделать в скриптах ObjScript и ImprovementScript
+// Сделать отрисовку закрытого улучшения
+// Сделать отрисовку открытого но некупленного улучшения
+// Сделать отрисовку закрытого скина
+// Сделать отрисовку открытого но не купленного скина
+// я переделал некоторые переменные сохранения short в sbyte теперь вылазиет ошибка.. Нужно проверить в каком она месте, когда найду нужно в 
+// скрипте PauseMenu сделать ActiveProfile тоже такойже переменной Sbyte
+// При нажатии на кнопку выхода из игры в главном меню сделать чтобы вылазило окошко подтверждения
+// 3) Cделать инвентарь игрока
+// 4) Сделать полное обучение Прохождение будет начинаться с нулевого уровня - обучения. далее будет обучение в магазине
+// 5) Заново сделать режим игрок против игрока (в игре игрок против игрока 2 игрок будет ставиться с противоположной стороны сохранённой
+// при прохождении первым игроком
+// Сделать магазин, разделить его на 4 категории первая биты, вторая шайбы, третяя игровые поля, четвёртая скайбоксы
+
+
+public class MainMenu : MonoBehaviour 
+{
+	public static GameObject[] GO = new GameObject[150];
+//-----------------------------------------------------------Текстуры для главного меню-----------------------------------------------------------
+	public Texture2D MMenu;									// (Main Menu) Текстура для главного меню
+	public Texture2D WPP;									// (Window Player Profiles) Текстура для окна игровых профилей
+	public Texture2D AvatarWindow;							// Текстура главного окна в меню выбора аватара
+	public Texture2D InformationWindow;						// Текстура окна информации об игре
+	public Texture2D FrameForGems;							// Текстура рамки для драгоценных камней
+	public Texture2D ScoreFrame;							// Текстура рамки для счёта очков - (денег)
+	public Texture2D WindowStore;							// Текстура для окна магазина
+	public Texture2D OverviewWindowObject;					// Текстура окошка обзора 3D предмета в меню объекта
+	public Texture2D DefaultAvatar;							// Аватар по умолчанию("No avatar") для пустых профилей
+	public Texture2D Closed;								// Стандартная текстура для закрытых объектов в магазине
+	public Texture2D NotExist;								// Стандартная текстура для несуществующих объектов в магазине
+	public Texture2D ShadingObject;							// Текстура для затенения открытого объекта в магазине
+	public Texture2D TexSelSkinButtonDown;					// Текстура активной кнопки выбора скина
+	public Texture2D TexSelImprButtonDown;					// Текстура активнной кнопки выбора улучшения
+//-----------------------------------------------------------Звуки для главного меню--------------------------------------------------------------
+	public AudioClip Error;									// Звук ошибки
+//------------------------------------------------------------------------------------------------------------------------------------------------
+	public MainMenuWins Window;								// Номер окна показываемого игроку
+	public MainMenuPlus MMP;								// Ссылка на дополнительный скрипт главного меню MainMenuPlus
+	public GameObject Fotographer;							// Переменная фотограф сюда помещаеться префаб камеры с источником света
+	public GUISkin GameSkin;								// Скин для всех гуи элементов
+	public Texture[] LevelScrins;							// Массив снимков уровней
+	public byte SelectedLevel;								// Номер выбранного уровня для прохождения			
+//------------------------------------------------------------Данные для всех профилей------------------------------------------------------------
+	public sbyte ActiveProfile = -1;			  	// Активный профиль - тот профиль который мы выбрали и за который играем
+	public string[] Profiles = new string[5];	  	// Массив имён профилей игроков(Номер имени в массиве означает номер профиля)
+	public Texture2D[] PlayersAv = new Texture2D[5];// (Players Avatars) В этом массиве храняться аватары всех 5 профилей по одному на каждого
+	public int[] Score = new int[5];				// Массив для "денег" всех пяти профилей
+	public byte[] Progress = new byte[5];		  	// В этом массиве указываеться следующий уровень который доступен для прохождения
+//----------------------------------------------------------Данные для активного профиля----------------------------------------------------------
+	public byte PlayedLevel;					  	// В этой переменной указываеться последний сыгранный уровень для активного профиля
+	public short[] LastModels = new short[4];		// 4 элемента массива. Каждая цифра указывает на номер элемента массива в котором он лежит
+	public bool RightSide;						  	// (Для активного профиля) Последняя выбранная сторона  на которой предпочитает играть игрок
+	public bool AlienStyle;						  	// Какой стиль текста предпочитаем для цифр земной или инопланетный true означает инопланетный
+//---------------------------------------Сохранения для открытых и купленных элементов магазина активного профиля----------------------------------------------------------------------------------------------------------------
+	List<ushort> ObjectNombers = new List<ushort>();			// Номера объектов в массиве ObjectsStore
+	List<ushort> ActiveMats = new List<ushort>();				// Номера активных материалов для объектов в массиве
+	List<char> ObjectState = new List<char>();					// Состояния объектов Открыт - O или Куплен - B
+	List<List<char>> StatesMaterials = new List<List<char>>();	// Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+	List<List<char>> StateImprovements = new List<List<char>>();// Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+
+	List<byte> SkyboxNomers = new List<byte>();					// Номера скайбоксов в массиве SkyboxScreens
+	List<char> SkyboxState = new List<char>();					// Состояния скайбоксов Открыт - O или Куплен - B
+//-------------------------------------------------------Переменные для работы магазина------------------------------------------------------------------------------------------------------------------------------------------
+	public StoreContent SC;									// Переменная для скрипта "Контент магазина"
+	string[] CategoryToolbar = new string[] {"Биты","Шайбы","Столы","Система"}; // Массив строк для категорий товаров магазина
+	string[] LvlToolbar	= new string[] {"1Lvl","2Lvl","3Lvl","4Lvl","5Lvl"};	// Массив строк для уровней товаров магазина
+	Rect[] PosIconMask = new Rect[25];			// В этом массиве храняться позиции масок для покупок в магазине
+	Rect[] PosIconSkins = new Rect[10];			// В этом массиве храняться позиции иконок покупки скинов(Материалов)
+	Rect[] PosIconImprs = new Rect[10];			// В этом массиве храняться позиции иконок покупки улучшений
+	Texture2D[] Texs = new Texture2D[25];		// В этом массиве храняться изображения ячеек просматриваемой категории магазина
+	List<Texture2D>Skins=new List<Texture2D>();	// В этом списке храняться изображения для кнопок материалов выбранного объекта
+	List<Texture2D>Imprvs=new List<Texture2D>();// В этом списке храняться изображения для кнопок улучшений выбранного объекта
+	bool[] ObjOpen = new bool[25];				// В этом массиве храняться состояния объектов для просматриваемой открыт или другое состояние
+	List<bool> StateMats;						// В этом списке храняться состояния материалов для выделенной ячейки открыт либо др. сост.
+	List<bool> StateImprs;						// В этом списке храняться состояния улучшений для выделенной ячейки открыт либо др. сост.
+	int[] PriceObjs = new int[25];				// В этом массиве хряняться цены объектов для просматриваемой категории и уровня
+	List<int> PriceMats;						// В этом списке храняться цены материалов для выделенного объекта в магазине
+	List<int> PriceImpr;						// В этом списке храняться цены улучшений для выделенного объекта в магазине
+	int ActiveCategory = 0;						// Активная категория в магазине
+	int ActiveLvl = 0;							// Активный уровень в магазине
+	int ActiveCell = 0;							// Активная ячейка в магазине
+	byte ActiveSkin = 0;						// Выделенная ячейка материала в магазине
+	byte ActiveImpr = 0;						// Выделенное улучшение активного предмета в магазине
+	sbyte LastCat = -1;							// Категория в магазине которая просматривалась последний раз
+	sbyte LastLevel = -1;						// Уровень в магазине который просматривалься прошлый раз
+	sbyte LastCell = 0;							// Последняя выбранная ячека в магазине
+	public Texture2D TexForSecond;				// Эта переменная нужна чтобы присвоить послед рендера эту текстуру активному списку текстур
+//-------------------------------------------------------Переменные для работы с профилями--------------------------------------------------------
+	public byte NumberProfile;					// Номер просматриваемого профиля
+	public bool ChoiseOfLevel = false;			// Показать ли окно выбора уровня
+	public bool ReviewProfile = false;			// Выдвинуть ли дополнительное окно для просмотра созданного профиля
+	public bool ConfirmDelProf	= false;		// (Confirmation Delete Profile) Показывать ли окно подтверждениея удаления профиля
+	bool CreationProfile = false;				// Выдвинуть ли дополнительное окно для создания профиля
+	public bool ButtonEnabled = true;			// Эта переменная говорит включенныли ли все кнопки в главном меню
+
+	string InformationText;						// Текст информирмации в окне аватаров
+	string ProfileText = "Введите имя игрока";	// Переменная для ввода ника игрока
+	Texture2D ProfileAv;						// Текстура выбранной игроком аватарки в меню создания аватара
+	Rect[] PosIconsAv = new Rect[50];			// (Position Icon Avatars) Позиции для иконок в меню выбора аватара
+	Texture2D[] StAv = new Texture2D[50];		// (Standart Avatars) В этом массиве храняться все стандартные аватары которые может выбрать игрок
+	string[] NamesAv = new string[0];			// В этом массиве храняться имена всех стандартных аватаров которые может выбрать игрок
+//	string[] Purchase = new string[20];			// В этом массиве храняться имена всех предметов в магазине
+//	Texture[] PurchaseImage = new Texture[20];	// В этом массиве храняться изображения всех предметов в магазине
+	string path;								// Сдесь будет лежать путь к сохранению и загрузке файла 
+	string WarningText = "";					// Текст предупреждения
+	Vector2 ScrollProfile = Vector2.zero;		// Вектор необходимый для полосы прокрутки в профиле игрока
+	Vector2 ScrollAvatar = Vector2.zero;		// Вектор необходимый для полосы прокрутки в окне выбора аватара
+	Vector2 ScrollInf = Vector2.zero;			// (Scroll Information) Вектор необходимый для полосы прокрутки окна информации
+	Vector2 NPCP = new Vector2(0,280);			// (New Position Creation Profile) Новая позиция окна создания профиля
+	Vector2 RPCP = new Vector2(-1410,280);		// (Real Position Creation Profile) Реальная изменяемая позиция окна создания профиля
+	Vector2 NPRP = new Vector2(0,280);			// (New Position Review Profile) Новая позиция окна просмотра профиля
+	Vector2 RPRP = new Vector2(-1410,280);		// (Real Position Revirw Profile) Реальная позиция окна просмотра профиля
+	Vector2 NPWP = new Vector2(0,0);			// (New Position Window Profiles) Новая позиция окна профилей
+	Vector2 RPWP = new Vector2(-200,280);		// (Real Position Window Profiles) Реальная изменяемая позиция окна профилей
+	float TimerCP = 0;							// (Timer Creation Profile) Таймер создания профиля
+	float TimerRP = 0;							// (Timer Review Profile) Таймер обзора профиля
+//-----------------------------------------------------Переменные для работы меню-----------------------------------------------------------------
+	Camera MainCam;								// Сюда ложим главную камеру
+	Camera Cam;									// Сюда ложим камеру из префаба
+	string Text  = "Игра находиться на стадии разработки. SERG__ZV";
+	string Version = "v 0.0.1b";				// Номер версии игры
+	float OriginalHight = 1080; 				// Заносим а переменную OriginalHight высоту экрана в которой разрабатывалась игра
+	float RatioH;								// Сюда заноситься результат деления оригинальной высоты экрана на текущую
+
+
+	void Start()
+	{
+		path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Создаём/получаем путь к папке мои документы
+		MainCam = Camera.main;								// Ложим в переменную MainCam главную камеру
+		RatioH = Screen.height / OriginalHight;				// Заносим в ScreenBalansHight результат деления описанный выше
+		FillProfiles();										// Вызываем метод заполняющий профили информацией													
+//		StartCoroutine(FillObjTex());						// Фотографируем иконки для отрисовки
+		CalculatePosIcons();								// Расчитываем позиции для всех множественных прямоугольников в первой сцене
+		GetNamesAvatars();									// Получаем имена аватаров
+		FindPlayersAvatars();								// Находим аватары игроков	
+		ProfileAv = DefaultAvatar;							// Помещаем в переменную ProfileAv аватар по умолчанию
+		InformationText = "Выберите себе аватар";			// Устанавливаем стартовый текст								
+	}
+
+	
+	void Update()
+	{
+		if(ChoiseOfLevel == true)	// Если мы в окне выбора уровня
+		{
+			// Если колесо мыши прокрученно вверх и текущий уровень доступный для прохождения больше выбранного уровня
+			if(Input.GetAxis("Mouse ScrollWheel")> 0.1f && Progress[ActiveProfile] > SelectedLevel)
+				SelectedLevel++;		// То мы прибавляем переменной "выбранный уровень" 1
+
+			// Если колесо мыши было прокрученно вниз и выбранный уровень больше или равен еденице
+			if(Input.GetAxis("Mouse ScrollWheel")< -0.1f && SelectedLevel >= 1)
+				SelectedLevel--;		// То мы отнимаем у переменной "выбранный уровень" 1
+		}
+
+		if(TimerCP > 0)								// Если переменная TimerCP равна ложь
+		{
+			ChangeCreateProfileWindowPosition();	// Вызываем метод изменить позицию окна создания профиля
+		}
+		if(TimerRP > 0)								// Если переменная TimerRP равна ложь
+		{
+			ChangeReviewProfileWindowPosition();	// Вызываем метод изменить позицию окна просмотра профиля
+		}
+
+	}
+
+	
+	void OnGUI()
+	{
+		GUI.depth = 2;						// Устанавливаем дальность гуи от камеры
+		GUI.skin = GameSkin;				// Устанавливаем гуи скин
+		if(Window == MainMenuWins.MainMenu) // Главное меню
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+
+			GUI.DrawTexture(new Rect(-190, 130, 380, 680), MMenu);									// Рисуем текстуру главного меню
+			if(ActiveProfile != -1)	// Если переменная ActiveProfile не равна -1
+			{
+				if(Profiles[ActiveProfile].Length<=10)													// Если длинна профиля меньше или равна 12
+					GameSkin.GetStyle("PlayerProfileTextColor").fontSize = 40;							// Ставим размер текста этого стиля 24
+				else if(Profiles[ActiveProfile].Length>10 && Profiles[ActiveProfile].Length<15)			// Если длинна профиля больше 12
+					GameSkin.GetStyle("PlayerProfileTextColor").fontSize = 28;							// Ставим размер текста этого стиля 24
+				else if(Profiles[ActiveProfile].Length>15)												// Если длинна профиля больше 12
+					GameSkin.GetStyle("PlayerProfileTextColor").fontSize = 22;							// Ставим размер текста этого стиля 24
+				GUI.Label(new Rect(-200, 78, 400, 200), Profiles[ActiveProfile], "PlayerProfileTextColor");	// Рисуем ник игрока
+			}
+			else if(ActiveProfile == -1)
+			{
+				GameSkin.GetStyle("PlayerProfileTextColor").fontSize = 18;								// Ставим размер текста этого стиля 18
+				GUI.Label(new Rect(-200, 78, 400, 200), "Создайте профиль чтобы начать игру", "PlayerProfileTextColor");
+			}
+			GUI.enabled = ButtonEnabled;
+			if(GUI.Button(new Rect(-93, 258, 186, 42), "Прохождение"))
+			{
+				if(ActiveProfile != -1)												// Если есть активный профиль
+				{
+					ChoiseOfLevel = true;											// То показываем окно выбора уровня
+				}
+				else 																// Иначе если профиль отсутствует
+				{
+					StartCoroutine(PleaseCreateProfile());							// Напоминаем что нужно создать профиль
+				}
+			}
+			if(GUI.Button(new Rect(-93, 354, 186, 42), "Игра на двоих"))			// Если была нажата кнопка игра на двоих
+			{
+				if(ActiveProfile != -1)												// Если есть активный профиль
+				{
+					Application.LoadLevel("PlayerVsPlayer");						// Загружаем уровень игры на двоих 								
+				}
+				else 																// Иначе если профиль отсутствует
+				{
+					StartCoroutine(PleaseCreateProfile());							// Напоминаем что нужно создать профиль
+				}
+			}
+			if(GUI.Button(new Rect(-93, 450, 186, 42), "Магазин"))					// Если была нажата кнопка магазин
+			{
+				if(ActiveProfile != -1)												// Если есть активный профиль
+				{
+					Window = MainMenuWins.Magazine;									// Вызываем окно магазина			
+				}
+				else 																// Иначе если профиль отсутствует
+				{
+					StartCoroutine(PleaseCreateProfile());							// Напоминаем что нужно создать профиль
+				}
+			}
+			if(GUI.Button(new Rect(-93, 546, 186, 42), "Профиль"))					// Если была нажата кнопка профиль									
+				Window = MainMenuWins.Profile;										// Вызываем окно профиля
+
+			if(GUI.Button(new Rect(-93, 642, 186, 42), "Информация"))				// Если была нажата кнопка информация												
+				Window = MainMenuWins.Information;									// Вызываем окно информации
+
+			if(GUI.Button(new Rect(-93, 738, 186, 42), "Выход из игры"))			// Если была нажата кнопка выход из игры											
+				Application.Quit();
+
+			GUI.enabled = true;
+		}
+
+		if(Window == MainMenuWins.Profile)	// Меню профиля игрока
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+//--------------------------------------------------------------Группа для окна профилей--------------------------------------------------------
+			GUI.BeginGroup(new Rect(RPWP.x, 280, 400, 422));									// Создаём группу для меню профилей
+			GUI.DrawTexture(new Rect(0,0, 400, 422), WPP);										// Рисуем текстуру меню профилей
+			ScrollProfile = GUI.BeginScrollView(new Rect(0,1, 400, 420), ScrollProfile, new Rect(0,0, 378, 580)); // Окно скролла
+			GUI.enabled = ButtonEnabled;														// Определяем включенны ли кнопки или нет
+			if(GUI.Button(new Rect(15, 20, 350, 60), "Создать новый профиль", "ButtonPlus"))	// Если кнопка (Создать новый профиль) нажата
+				if(!ReviewProfile)																// Если блокинг ложь и ReviewProfile ложь
+				{
+					CreationProfile = true;														// Ставим значение переменной на правда
+					TimerCP = 3;																// Ставим TimerCP на 3 секунды
+				}
+
+			if (GUI.Button(new Rect(15, 100, 350, 60), "В главное меню", "ButtonBack"))			// Если кнопка (В главное меню) нажата
+			{
+				Window = 0;																	// Возвращаемся в главное меню
+				CreationProfile = false;													// То переменная создание профиля равно ложь
+				ReviewProfile = false;														// И переменная обзор профиля равно ложь
+				RPCP = new Vector2(-1410,280);	// И переменной реальная поз.. окна создания профиля ставим начальные координаты
+				RPRP = new Vector2(-1410,280);	// Переменной реальная позиция окна просмотра профиля
+				RPWP = new Vector2(-200,280);	// Переменной реальная поз.. окна профиля ставим координаты где окно находиться в центре
+			}
+																						
+//-----------------(1)
+			SizeTextButtonProfile(0);															// Определяем размер текста на этой кнопке
+			if(ProfileButton(new Rect(15, 180, 320, 60), Profiles[0], PlayersAv[0]))			// Если была нажата кнопка (Первый профиль)
+				ChangeActiveProfile(0);															// Вызываем метод изменить активный профиль
+			
+			if(GUI.Button(new Rect(335, 180, 30, 30), "", "CrossButton"))						// Если была нажата кнопка удалить профиль 1
+				if(Profiles[0] != "_ _ _ _ _")													// И этот профиль не пустой
+				{
+					MMP.NRP = 0;																// Отправляем в переменную NRP номер 0
+					ConfirmDelProf = true;														// Переменная ConfirmDelProf равняется true
+				}
+			if(GUI.Button(new Rect(335, 210, 30, 30), "", "EditProfileButton"))					// Если была нажата кнопка редактировать пр. 1
+				if(!CreationProfile && Profiles[0] != "_ _ _ _ _")								// И если профиль существует
+				{																				// и CreationProfile равна ложь
+					ReviewProfile = true;														// То переменная ReviewProfile равно правда
+					NumberProfile = 0;															// Говорим что была нажата кнопка 0
+					TimerRP = 3;																// Ставим TimerRP на 3 секунды
+				}
+//-----------------(2)
+			SizeTextButtonProfile(1);															// Определяем размер текста на этой кнопке
+			if(ProfileButton(new Rect(15, 260, 320, 60), Profiles[1], PlayersAv[1]))			// Если была нажата кнопка (Второй профиль)
+				ChangeActiveProfile(1);															// Вызываем метод изменить активный профиль
+														
+			if(GUI.Button(new Rect(335, 260, 30, 30), "", "CrossButton"))						// Если была нажата кнопка удалить профиль 2
+				if(Profiles[1] != "_ _ _ _ _")													// И этот профиль не пустой
+				{
+					MMP.NRP = 1;																// Отправляем в переменную NRP номер 1
+					ConfirmDelProf = true;														// Переменная ConfirmDelProf равняется true
+				}
+			if(GUI.Button(new Rect(335, 290, 30, 30), "", "EditProfileButton"))					// Если была нажата кнопка редактировать пр. 2
+				if(!CreationProfile && Profiles[1] != "_ _ _ _ _")								// И если профиль существует
+				{																				// и CreationProfile равна ложь
+					ReviewProfile = true;														// То переменная ReviewProfile равно правда
+					NumberProfile = 1;															// Говорим что была нажата кнопка 1
+					TimerRP = 3;																// Ставим TimerRP на 3 секунды
+				}	
+//-----------------(3)
+			SizeTextButtonProfile(2);															// Определяем размер текста на этой кнопке
+			if(ProfileButton(new Rect(15, 340, 320, 60), Profiles[2], PlayersAv[2]))			// Если была нажата кнопка (Третий профиль)											
+				ChangeActiveProfile(2);															// Вызываем метод изменить активный профиль
+		
+			if(GUI.Button(new Rect(335, 340, 30, 30), "", "CrossButton"))						// Если была нажата кнопка удалить профиль 3
+				if(Profiles[2] != "_ _ _ _ _")													// И этот профиль не пустой
+				{
+					MMP.NRP = 2;																// Отправляем в переменную NRP номер 2
+					ConfirmDelProf = true;														// Переменная ConfirmDelProf равняется true
+				}
+			if(GUI.Button(new Rect(335, 370, 30, 30), "", "EditProfileButton"))					// Если была нажата кнопка редактировать пр. 3
+				if(!CreationProfile && Profiles[2] != "_ _ _ _ _")								// И если профиль существует
+				{																				// и CreationProfile равна ложь
+					ReviewProfile = true;														// То переменная ReviewProfile равно правда
+					NumberProfile = 2;															// Говорим что была нажата кнопка 2
+					TimerRP = 3;																// Ставим TimerRP на 3 секунды
+				}
+//-----------------(4)
+			SizeTextButtonProfile(3);															// Определяем размер текста на этой кнопке
+			if(ProfileButton(new Rect(15, 420, 320, 60), Profiles[3], PlayersAv[3]))			// Если была нажата кнопка (Четвёртый профиль)
+				ChangeActiveProfile(3);															// Вызываем метод изменить активный профиль
+
+			if(GUI.Button(new Rect(335, 420, 30, 30), "", "CrossButton"))						// Если была нажата кнопка удалить профиль 4
+				if(Profiles[3] != "_ _ _ _ _")													// И этот профиль не пустой
+				{
+					MMP.NRP = 3;																// Отправляем в переменную NRP номер 3
+					ConfirmDelProf = true;														// Переменная ConfirmDelProf равняется true
+				}
+
+			if(GUI.Button(new Rect(335, 450, 30, 30), "", "EditProfileButton"))					// Если была нажата кнопка редактировать пр. 4
+				if(!CreationProfile && Profiles[3] != "_ _ _ _ _")								// И если профиль существует
+				{																				// и CreationProfile равна ложь
+					ReviewProfile = true;														// То переменная ReviewProfile равно правда
+					NumberProfile = 3;															// Говорим что была нажата кнопка 3
+					TimerRP = 3;																// Ставим TimerRP на 2 секунды
+				}
+//-----------------(5)
+			SizeTextButtonProfile(4);															// Определяем размер текста на этой кнопке
+			if(ProfileButton(new Rect(15, 500, 320, 60), Profiles[4], PlayersAv[4]))			// Если была нажата кнопка (Пятый профиль)
+				ChangeActiveProfile(4);															// Вызываем метод изменить активный профиль
+
+			if(GUI.Button(new Rect(335, 500, 30, 30), "", "CrossButton"))						// Если была нажата кнопка удалить профиль 5
+				if(Profiles[4] != "_ _ _ _ _")													// И этот профиль не пустой
+				{
+					MMP.NRP = 4;																// Отправляем в переменную NRP номер 4
+					ConfirmDelProf = true;														// Переменная ConfirmDelProf равняется true
+				}
+			if(GUI.Button(new Rect(335, 530, 30, 30), "", "EditProfileButton"))					// Если была нажата кнопка редактировать пр. 5
+				if(!CreationProfile && Profiles[4] != "_ _ _ _ _")								// И если профиль существует
+				{																				// и CreationProfile равна ложь
+					ReviewProfile = true;														// То переменная ReviewProfile равно правда
+					NumberProfile = 4;															// Говорим что была нажата кнопка 4
+					TimerRP = 3;																// Ставим TimerRP на 3 секунды
+				}
+			GUI.enabled = true;																	// Следующие элементы активны всегда
+			GUI.EndScrollView();																// Конец окна скролла
+			GUI.EndGroup();																		// Конец группы
+//----------------------------------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------Группа для окна создания профиля-----------------------------------------------------------
+			GUI.BeginGroup(new Rect(RPCP.x, 280, 400, 420));									// Создаём группу для меню создания профиля
+			GUI.DrawTexture(new Rect(0,0, 400, 420), WPP);										// Рисуем текстуру меню создания профиля
+			ProfileText = GUI.TextField(new Rect(160, 30, 235, 40), ProfileText, 20);			// Рисуем поле ввода ника игрока
+			GUI.Label(new Rect(160, 75, 235, 70), WarningText, "WarningText");					// Рисуем предупреждение при необходимости
+			GUI.enabled = ButtonEnabled;														// Определяем включенны ли кнопки или нет
+			if(GUI.Button(new Rect(25, 21, 128, 128), ProfileAv, "Avatar"))						// Если мы нажали на кнопку картинку аватара
+			{
+				Window = MainMenuWins.Profile_Avatar;											// То переходим в окно выбора аватара
+			}
+
+			if(GUI.Button(new Rect(25, 260, 350, 60), "Создать", "ButtonPlus"))					// Если кнопка создать профиль нажата
+				StartCoroutine(CreateNewProfile());												// Вызываем метод создать новый профиль
+
+			if(GUI.Button(new Rect(25, 340, 350, 60), "Отмена", "ButtonBack"))					// Если кнопка отмена нажата
+			{
+				CreationProfile = false;														// То переменная создать профиль равна ложь
+				ProfileAv = DefaultAvatar;														// Ставим стандартный аватар в меню создания
+				WarningText = "";																// Стираем надпись имя подходит
+				ProfileText = "Введите имя игрока";												// Ставим текст введите имя пользователя
+			}
+			GUI.enabled = true;																	// Следующие элементы активны всегда
+			GUI.EndGroup();																		// Конец группы
+//----------------------------------------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------Группа для окна просмотра созданного профиля---------------------------------------------------
+			GUI.BeginGroup(new Rect(RPRP.x, 280, 400, 420));									// Создаём группу для меню просмотра профиля
+			GUI.DrawTexture(new Rect(0, 0, 400, 420), WPP);								// Рисуем текстуру меню просмотра профиля
+			GUI.Label(new Rect(25, 10, 350, 40), Profiles[NumberProfile], "ProfileNameText");	// Отрисовываем имя профиля
+			GUI.DrawTexture(new Rect(160, 70, 92, 28), FrameForGems);							// Отрисовываем рамку для рубинов
+			GUI.Label(new Rect(190, 69, 130, 30), Score[NumberProfile] + "");					// Отрисовываем количество "денег"
+			GUI.DrawTexture(new Rect(160, 110, 92, 28), FrameForGems);							// Отрисовываем рамку для изумрудов
+			GUI.enabled = ButtonEnabled;														// Определяем включенны ли кнопки или нет
+			if(GUI.Button(new Rect(25, 60, 128, 128), PlayersAv[NumberProfile], "Avatar"))		// Если мы нажали на кнопку картинку аватара
+				Window = MainMenuWins.Profile_Avatar;												// То переходим в окно выбора аватара
+			
+			if(GUI.Button(new Rect(25, 340, 350, 60), "Назад", "ButtonBack"))					// Если кнопка назад нажата
+				ReviewProfile = false;															// То переменная обзор профиля равна ложь
+			GUI.enabled = true;																	// Следующие элементы активны всегда
+			GUI.EndGroup();																		// Конец группы
+//----------------------------------------------------------------------------------------------------------------------------------------------
+		}
+
+		if(Window == MainMenuWins.Profile_Avatar)	// Выбор аватара
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-410, 228, 820, 520));										// Начинаем группу
+			GUI.DrawTexture(new Rect(0, 0, 820, 520), AvatarWindow);							// Рисуем меню выбора аватара
+			ScrollInf = GUI.BeginScrollView(new Rect (2, 2, 762, 52), ScrollInf, new Rect(0, 0, 740, 138)); // Окно скролла информации
+			GUI.Label(new Rect(0,0, 746, 102), InformationText, "InformationAvatars");						// Отрисовываем текст информации
+			GUI.EndScrollView();															// Заканчиваем окно скролла
+			if(GUI.Button(new Rect(766,2,52,52), "<Size=30>?</Size>", "SquareButton"))		// по нажатии на кнопку с верху всплывёт подсказка
+			{
+				InformationText = "Вы можете установить свои аватары. Для этого положите их в папку по адресу " + Application.streamingAssetsPath
+				+ "/AvatarsPlayers. Но для корректного отображения их размер должен быть 120x120. Также путь к игре и имена аватарок должны " +
+				"быть без русских букв иначе аватарки просто не будут отображаться. Внимание только изображения в формате jpg будут видны. " +
+				"Также если общее количество аватарок в этой папке будет больше 50 то последние просто не будут отображаться. Вы можете " +
+				"освободить дополнительное место удалив стандартные аватары.";
+			}
+			ScrollAvatar = GUI.BeginScrollView(new Rect(0,56, 820, 462), ScrollAvatar, new Rect(0,0, 798, 1500)); // Окно скролла
+			if(DrawButtonsAvatars())																// Отрисовываем кнопки аватары и при нажатии
+			{
+				if(CreationProfile)																	// Если создание профиля равно правда
+				{
+					Window = MainMenuWins.Profile;													// Отрисовываем меню профиля игрока
+					ProfileAv = StAv[ActiveCell];													// Cтавим новую выбранную аватарку
+					ProfileAv.name = NamesAv[ActiveCell];											// И задаём путь/имя в папке к этой текстуре
+				}
+				else if(ReviewProfile)																// Если обзор профиля равно правда
+				{
+					Window = MainMenuWins.Profile;													// Отрисовываем меню профиля игрока
+					PlayersAv[NumberProfile] = StAv[ActiveCell];									// Cтавим новую выбранную аватарку
+					PlayersAv[NumberProfile].name = NamesAv[ActiveCell];							// И задаём путь/имя в папке к этой текстуре
+					SavePathNewAvProfile();															// Сохраняем в профиле новую аватарку
+				}
+			}
+			GUI.EndScrollView();																	// Заканчиваем окно скролла
+			GUI.EndGroup();																			// Заканчиваем группу
+		}
+
+		if(Window == MainMenuWins.Information) // Инофрмация об игре
+		{
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с верху по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, 0, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.DrawTexture(new Rect(-400, 200, 800, 600), InformationWindow);									// Рисуем меню информации об игре
+			GUI.Label(new Rect(-387, 220, 0, 0), Text, "InformationText");
+			GUI.Label(new Rect(340,770,0,0), Version, "InformationText");
+			if(GUI.Button (new Rect(-93, 720, 186, 42), "Вернуться") || Input.GetKey(KeyCode.Escape))	// если кнопка вернуться была нажата
+				Window = MainMenuWins.MainMenu;															// Возвращаемся в главное меню
+		}
+
+		if(Window == MainMenuWins.Magazine)	// Магазин
+		{
+			// (TotalScore) Общее количество денег представленное в сапфирах
+		//	int TS = Score[ActiveProfile];
+			if(LastCell != ActiveCell)												// Если изменилась ячейка
+			{
+				LastCell = (sbyte)ActiveCell;										// Приравниваем LastCell выбранную ячейку
+				FillActiveCellInf();												// Заполняем списки просматриваемых материалов и улучшений
+			}
+			if(LastCat != ActiveCategory || LastLevel != ActiveLvl)					// Если изменилась категория или выбранный уровень
+			{
+				LastCat = (sbyte)ActiveCategory;									// Приравниваем LastCat выбранную категорию
+				LastLevel = (sbyte)ActiveLvl;										// Приравниваем LastLevel выбранный уровень
+				FillActiveCategory();												// Заполняем все массивы относящиеся к активной категории
+				LastCell = (sbyte)ActiveCell;										// Приравниваем LastCell выбранную ячейку
+				FillActiveCellInf();												// Заполняем списки просматриваемых материалов и улучшений
+			}
+			// Изменяем размер матрицы под новый экран и отрисовываем элементы с середины экрана по ширине и с середины по высоте
+			GUI.matrix = Matrix4x4.TRS(new Vector3(Screen.width/2, Screen.height/2, 0), Quaternion.identity, new Vector3(RatioH,RatioH,1));
+			GUI.BeginGroup(new Rect(-409, -335, 817, 670), WindowStore);			// Начинаем группу магазина
+			if(GUI.Button(new Rect(6, 9, 186, 42), "Купить предмет"))				// Если была нажата кнопка Купить предмет
+			{}
+			if(GUI.Button(new Rect(198, 9, 186, 42), "Купить скин"))				// Если была нажата кнопка Купить предмет
+			{}
+			if(GUI.Button(new Rect(390, 9, 186, 42), "Купить улучшение"))			// Если была нажата кнопка Купить предмет
+			{}
+			GUI.DrawTexture(new Rect(532, 87, 280, 280), OverviewWindowObject);					// Отрисовываем окно обзора предмета	
+			GUI.DrawTexture(new Rect(590, 10, 140, 40), ScoreFrame);							// Отрисовываем рамку для "денег"
+			GUI.Label(new Rect(595, 15, 130, 30), Score[ActiveProfile] + "", "TotalScoreText");	// Отрисовываем количество всех денег
+			if(GUI.Button(new Rect(752,4,52,52), "<Size=30><</Size>", "SquareButton"))			// По нажатии на квадратную кнопку
+			{
+				Window = MainMenuWins.MainMenu;													// Переходим в окно главного меню
+			}
+			GUI.Label(new Rect(210, 62, 200, 25), "<Size=25><Color=black>Магазин</Color></Size>");		// Текст магазин
+			GUI.Label(new Rect(595, 62, 300, 25), "<Color=black>Обзор предмета</Color>");				// Текст обзор предмета			
+			GUI.Label(new Rect(648, 366, 200, 20), "<Size=15><Color=black>Скины</Color></Size>");		// Текст скины
+			GUI.Label(new Rect(630, 511, 200, 20), "<Size=15><Color=black>Улучшения</Color></Size>");	// Текст улучшения
+			ActiveCategory = GUI.Toolbar(new Rect(5, 87, 520, 30), ActiveCategory, CategoryToolbar, "ButtonCategory");// Выбор раздела магазина
+			ActiveLvl = GUI.Toolbar(new Rect(5, 116, 520, 30), ActiveLvl, LvlToolbar, "ButtonLevel"); 				  // Выбор уровня предмета
+			ActiveCell = GUI.SelectionGrid(new Rect(5, 145, 520, 520),ActiveCell, Texs, 5,"ButtonElementSelection");  // Отрисовываем ячейки
+			ActiveSkin = RenderGroup(PosIconSkins, ActiveSkin, Skins, TexSelSkinButtonDown, "SelectionSkinButton");	  // Отрисовываем скины
+			ActiveImpr = RenderGroup(PosIconImprs, ActiveImpr, Imprvs, TexSelImprButtonDown, "SelectionImprovementButton");	// Рисуем улучшения
+			DrawMaskAndPrice();								// Поверх открытых но не купленных предметов отрисовываем полупрозрачную маску и цену												
+			GUI.EndGroup();									// Заканчиваем группу
+		}
+	}
+//-------------------------------------------------------------Методы---------------------------------------------------------------------------
+
+
+//	void SaveStoreObjectNames()	// Этот метод при запуске главного меню заного сохраняет имена всех объектов и скайбоксов что есть в магазине
+//	{
+//		InfoProfiles SP = new InfoProfiles();					// Создаём объект SP класса InfoProfiles
+
+//		for(short a=0; a<ObjectsStore.Length; a++)				// Продолжаем цикл пока не пройдём все переменные массива ObjectsStore
+//		{
+//			if(ObjectsStore[a] != null)							// Если переменная с номером цикла не пуста а содержит префаб
+//			{
+//				SP.ObjectsStoreNames[a] = ObjectsStore[a].name;	// Записываем имя в переменную массива SP.ObjectsStoreNames c номером цикла
+//			}
+//		}
+
+//		for(short b=0; b<SkyboxScreens.Length; b++)				// Продолжаем цикл пока не пройдём все переменные массива SkyboxScreens
+//		{
+//			if(SkyboxScreens[b] != null)						// Если переменная с номером цикла не пуста а содержит аватарку
+//			{
+//				SP.SkyboxScreensNames[b]=SkyboxScreens[b].name;	// Записываем имя аватарки в переменную массива SP.SkyboxScreensNames
+//			}
+//		}
+
+//		for(short c=0; c<SkyboxMats.Length; c++)				// Продолжаем цикл пока не пройдём все переменные массива SkyboxMats
+//		{
+//			if(SkyboxMats[c] != null)							// Если переменная с номером цикла не пуста а содержит аватарку
+//			{
+//				SP.SkyboxesMatsNames[c] = SkyboxMats[c].name;	// Записываем имя материала скайбокса в переменную массива SP.SkyboxesMatsNames
+//			}
+//		}
+
+//		// Создаём файл сохранения для профиля и посылаем в него поток
+//		FileStream SaveProf = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[NumberProfile] + ".bin", FileMode.Create);
+//		BinaryFormatter BinFor = new BinaryFormatter();	// Создаём объект класса серриализатора
+//		BinFor.Serialize(SaveProf, SP);					// Серриализуем объект _SP в поток SaveInf
+//		SaveProf.Close();								// Закрываем поток	
+//	}
+
+
+
+
+	IEnumerator PleaseCreateProfile()								// Этот метод при своём вызове напоминает что для игры нужно создать профиль
+	{
+		GetComponent<AudioSource>().PlayOneShot(Error);				// Проигрываем звук ошибки
+
+		GameSkin.GetStyle("PlayerProfileTextColor").normal.textColor = new Color(0.2F, 0.3F, 0.4F, 1F);
+		yield return new WaitForSeconds(0.1f);
+		GameSkin.GetStyle("PlayerProfileTextColor").normal.textColor = new Color(0.0F, 0.4F, 1F, 1F);
+		yield return new WaitForSeconds(0.1f);
+		GameSkin.GetStyle("PlayerProfileTextColor").normal.textColor = new Color(0.2F, 0.3F, 0.4F, 1F);
+		yield return new WaitForSeconds(0.1f);
+		GameSkin.GetStyle("PlayerProfileTextColor").normal.textColor = new Color(0.0F, 0.4F, 1F, 1F);
+	}
+
+
+	// Этот метод отрисовывает кнопки материалов либо улучшений и возвращает номер выбранного объекта
+	byte RenderGroup(Rect[] Rects, byte Selected, List<Texture2D> Textures, Texture2D Tex, GUIStyle Style)
+	{
+		for(byte a=0; a<Textures.Count ;a++)						// Продолжаем цикл пока у нас есть текстуры для отрисовки
+		{
+			if(a == Selected)										// Если в этом цикле мы наткнулись активную выбранную кнопку
+			{
+				GUI.DrawTexture(Rects[a], Tex);						// Отрисовываем псевдокнопку из бокса
+				GUI.DrawTexture(new Rect(Rects[a].position.x + 1, Rects[a].position.y + 1, 40, 40), Textures[a]);// Отрисовываем контент псевдокнопки
+			}
+			else if(GUI.Button(Rects[a], Textures[a], Style))		// Если одна из отрисовываемых кнопок была нажата 
+			{
+				Selected = a;										// Присваиваем переменной Selected номер кнопки
+			}
+
+		}
+		if(Textures.Count <= 0)
+		{
+			GUI.Label(new Rect(568, 490, 200, 200), "<Color=black>Улучшения для этого объекта отсутствуют</Color>");
+		}
+		return Selected;
+	}
+
+	IEnumerator PhotographObject(int Obj)	// Этот метод фотграфирует объект на случай если у него нет текстуры для отрисовки скина в магазине
+	{
+		RenderTexture RendTex = new RenderTexture(40,40, 24, RenderTextureFormat.ARGB32);
+		GameObject CamClone;		// Ссылка на клон камеры
+		GameObject ObjClone;		// Ссылка на клон фотографируемого объекта
+		// Помещаем на сцену клон префаба фотографа а ссылку на этот клон отправляем в CamClone
+		CamClone = (GameObject)Instantiate(Fotographer, new Vector3(0,-2, -1.4f), Quaternion.identity);
+		// Помещаем на сцену клон префаба объекта а сслыку на этот объект отправляем в ObjClone
+		ObjClone = (GameObject)Instantiate(SC.ObjectsStore[Obj], new Vector3(0,-2,0), Quaternion.AngleAxis(90, new Vector3(-1, 0, 0)));
+		CamClone.GetComponent<Camera>().targetTexture = RendTex;					// Устанавливаем для 2ой камеры рендер текстуру
+		CamClone.GetComponent<Camera>().pixelRect = new Rect(0,0,40,40);			// Устанавливаем разрешение для второй камеры
+		// Создаём текстуру 2D во временной переменной
+		TexForSecond = new Texture2D(40, 40, TextureFormat.ARGB32, false);
+		// Придаём новому клону объекта размер указанный в скрипте его префаба
+		ObjClone.transform.localScale = SC.ObjectsStore[Obj].GetComponent<ObjectScript>().ViewSize;
+		yield return new WaitForEndOfFrame();										// Ждём конца отрисовки текущего кадра
+		CamClone.GetComponent<Camera>().Render();									// Рендерим изображение с камеры клона в рендер текстуру
+		RenderTexture.active = RendTex;												// Ставим RendText активной рендер текстурой
+		// Читаем изображение с активной рендер текстуры во временную переменную TexForSecond
+		TexForSecond.ReadPixels(new Rect(0, 0, 40, 40), 0, 0, false);
+		TexForSecond.Apply();														// Применяем изменения в текстуре TexForSecond
+		GameObject.Destroy(CamClone);												// Удаляем префаб фотограф
+		GameObject.Destroy(ObjClone);												// удаляем объект		 	
+	}
+	
+
+
+
+	// Этот метод заполняет все массивы относящиеся к активной категории предметов
+	void FillActiveCategory()	
+	{
+		int ObjEl=(ActiveCategory*125)+(ActiveLvl*25);	// Определяем первый элемент ячейки выбранной категории для массива ObjectsStore
+		short NomList = 0;								// Номер элемента в списке с очередным обнаруженным совпадением
+		bool ObjSaveExist;								// Эта переменная говорит существует ли сохранение для объекта в этом цикле
+		for(byte a=0; a<Texs.Length; a++)				// Продолжаем цикл пока не заполним массивы относящиеся к активной категории
+		{
+			ObjSaveExist = false;						// По умолчанию в каждом цикле мы считаем что объект не существует
+			ObjOpen[a] = false;							// По умолчанию в каждом цикле мы считаем что состояние объекта не открыт а другое
+			if(SC.ObjectsStore[ObjEl] != null)				// Если такой объект в массиве существует
+			{// Чтобы узнать куплен этот объект, открыт или закрыт для начала нам нужно пройтись по списку ObjectNombers
+				// Присваиваем номеру цикла номер самого первого обнаруженного совпадения чтобы для следующего объекта не проходить
+				// заного список ObjectNombers
+				for(short b=NomList; b<ObjectNombers.Count; b++)	// продолжаем цикл до тех пор пока не пройдём весь список ObjectNombers
+				{
+					if(ObjEl == ObjectNombers[b])			// Если же мы наткнулись в каком то цикле на сохранение этого объекта
+					{
+						ObjSaveExist = true;				// То ставим что объект в этом цикле куплен
+						NomList = b;						// То присваиваем переменной NomList номер нового совпадения
+						NomList++;							// И переходим на следующий элемент списка ObjectNombers
+						if(ObjectState[b] == 'B')			// И если этот объект куплен
+						{
+							// То мы присваемваем его текстуру для магазина массиву текстур с номером цикла
+							Texs[a] = SC.ObjectsStore[ObjEl].GetComponent<ObjectScript>().FotoStore;
+						}
+						else if(ObjectState[b] == 'O')		// Иначе если этот объект просто открыт
+						{
+							// То мы присваемваем его текстуру для магазина массиву текстур с номером цикла
+							Texs[a] = SC.ObjectsStore[ObjEl].GetComponent<ObjectScript>().FotoStore;
+							// Присваиваем цену элементу массива с номером a цену объекта из массива ObjStore с номером ObjEl
+							PriceObjs[a] = SC.ObjectsStore[ObjEl].GetComponent<ObjectScript>().Price;	
+							ObjOpen[a] = true;	// И меняем значение на True в массиве состояний просмартиваемой категории
+
+						}
+						break;		// То прерываем цикл так как сохранение найденно
+					}
+				}
+				if(ObjSaveExist == false) 			// Если мы не наткнулись ни на одно сохранение в цикле выше (Значит объект закрыт)
+				{
+					Texs[a] = Closed;				// Тогда мы присваеваем спецальную текстуру для закрытых объектов(Замок)
+				}
+			}
+			else 									// Иначе если этого объекта несуществует
+			{
+				Texs[a] = NotExist;					// Тогда мы присваеваем спецальную текстуру для несуществующих объектов(Крест)		
+			}
+			ObjEl++;	// Прибавляем к переменной (ObjectElement) 1 чтобы в следующем цикле опросить следующий элемент массива ObjectStore
+		}
+	}
+
+
+	//  Этот метод находит номер сохранения в списках и заполняет списки выбранной клетки в магазине текстурами улучшений и материалов 
+	void FillActiveCellInf()
+	{
+		int ObjEl=(ActiveCategory*125)+(ActiveLvl*25)+ActiveCell;	// Определяем номер выбранного объекта в массиве ObjStore
+		ObjectScript ObjScr;										// Сдесь будет лежать экземпляр ObjectScript нужного объекта
+		Skins.Clear();												// Очищаем списко текстур материалов выбранной ячейки
+		Imprvs.Clear();												// Очищаем список текстур улучшений выбранной ячейки
+		// Ищем сохранение в массиве ObjectNombers для выбранной ячейки в магазине
+		for(ushort a=0; a<ObjectNombers.Count; a++)					// Продолжаем цикл до тех пор пока не пройдём весь список ObjectNombers
+		{
+			if(ObjEl == ObjectNombers[a])							// Если мы нашли сохранение для этого объекта
+			{
+				ObjScr = SC.ObjectsStore[ObjEl].GetComponent<ObjectScript>();	// Получаем скрипт ObjectScript для этого объекта
+				// Заполняем массив текстур материалов выбранного объекта
+				for(byte b=0; b<StatesMaterials[a].Count; b++)		// Продолжаем итерацию пока не переберём все материалы существующие у объекта										
+				{
+					if(StatesMaterials[a][b] == 'B')				// Если этот материал куплен
+					{
+						if(ObjScr.FirstMaterials[b].mainTexture)	// И если у этого материала есть текстура
+						{
+							// Добавляем в список текстур скинов с текстурой первого материала этого объекта
+							Skins.Add((Texture2D)ObjScr.FirstMaterials[b].mainTexture);	
+						}
+						else 										// Если этот материал без текстуры
+						{
+							StartCoroutine(PhotographObject(ObjEl));// Вызываем метод чтобы сфотографировать объект 
+							Skins.Add(TexForSecond);				// И добавляем эту фотографию в список
+						}
+
+					}
+					else if(StatesMaterials[a][b] == 'O')			// Если этот материал просто открыт
+					{
+						// Добавляем в список текстур скинов строчку с текстурой первого материала этого объекта
+						Skins.Add((Texture2D)ObjScr.FirstMaterials[b].mainTexture);
+						StateMats[b] = true;						// И ставим элементу списка булиевых состояний скинов правда
+
+		
+																	
+					}
+					//					else if()					// Если этот материал закрыт
+					//					{
+					// Присваиваем ему иконку для закрытых материалов							
+					//					}
+					
+				}
+
+				if(StateImprovements[a].Count > 0)						// Если в сохранении для объекта записанны улучшения
+				{
+					for(byte c=0; c<StateImprovements[a].Count; c++)	// Продолжаем цикл пока не переберём все сохранения для этого объекта
+					{
+						if(StateImprovements[a][c] == 'B')				// Если улучшение с номером этого цикла куплено
+						{
+							// То добавляем в список текстур улучшений строчку с текстурой этого улучшения
+							Imprvs.Add(ObjScr.Improvements[c].GetComponent<ImprovementScript>().FotoStore);
+						}
+						else if(StateImprovements[a][c] == 'O')			// Если улучшение с номером этого цикла открыто но не куплено
+						{
+							// То добавляем в список текстур улучшений строчку с текстурой этого улучшения
+							Imprvs.Add(ObjScr.Improvements[c].GetComponent<ImprovementScript>().FotoStore);
+							StateImprs[c] = true;				// И ставим списку состояний StateImps правда что материал открыт но не купленн
+						}
+						else if(StateImprovements[a][c] == 'C')	// Если улучшение с номером этого цикла закрыто
+						{
+							// То добавляем в список текстур улучшений строчку с текстурой для закрытых улучшений и скинов
+
+						}
+					}
+				}
+				break; // Прерываем цикл так как мы нашли сохранение и заполнили по нему нужные массивы и списки
+			}
+		}
+	}
+	
+
+	void FillProfiles()	// Этот метод при старте заполняет профили информацией
+	{
+		if(File.Exists(path + "/My Games/Slide/Saves/ProfilesInf.bin"))	// Если файл ProfilesInf существует
+		{
+			IFormatter Form = new BinaryFormatter();					// Создаём дессериализатор
+			// Создаём поток читающий файл ProfileInf
+			FileStream LoadInf = new FileStream(path + "/My Games/Slide/Saves/ProfilesInf.bin", FileMode.Open, FileAccess.Read);
+			InfoProfiles SP = (InfoProfiles)Form.Deserialize(LoadInf);	// Создаём объект и десериализуем в него данные из файла ProfilesInf	
+			ActiveProfile = SP.ActiveProfile;							// Загружаем в переменную номер активного профиля из сохранения
+			Profiles = SP.Profiles;										// Загружаем в массив имена профилей
+			LoadInf.Close();											// Закрываем поток LoadInf
+			
+			for(byte i=0; i<Profiles.Length; i++)						// Продолжаем цикл до тех пор пока не пройдём массив Profiles
+			{
+				if(Profiles[i] != "_ _ _ _ _")							// Если этот профиль не пустой а был создан то загружаем его
+				{
+					// Создаём поток читающий файлы профилей
+					FileStream LoadProf = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[i] + ".bin", FileMode.Open, FileAccess.Read);
+					InfoProfile _SP = (InfoProfile)Form.Deserialize(LoadProf); // Создаём объект и десериализуем в него сохранение
+					// Загружаем аватарку в переменную www по данному адресу и присваиваем её текстуру аватарке профиля с номером цикла
+					PlayersAv[i] = new WWW("file:///" + _SP.PlayersAv).texture;
+					Score[i] = _SP.Score;						// Присваиваем массиву счёт с номером[i] сохранённое количество денег
+					Progress[i] = _SP.Progress;					// Присваиваем массиву Progress с номером[i] сохранённый прогресс
+					if(i == ActiveProfile)						// Если номер цикла равен номеру активного профиля то...
+					{	
+						PlayedLevel = _SP.PlayedLevel;			// Присваиваем переменной PlayedLevel последний сыгранный уровень
+						LastModels = _SP.LastModels;			// Присваиваем массиву LastModels последние выбранные элементы игры
+						RightSide = _SP.RightSide;				// Присваиваем переменной RightSide выбранную сторону для игры
+						AlienStyle = _SP.AlienStyle;			// Присваиваем переменной AlienStyle сохранённый стиль цифр
+						ObjectNombers = _SP.ObjectNombers;		// Присваиваем списку ObjectNombers номера объектов в масииве ObjectsStore
+						ActiveMats = _SP.ActiveMats;			// Присваиваем списку ActiveMats Номера активных материалов для объектов в массиве
+						ObjectState = _SP.ObjectState;			// Присваиваем списку ObjectsState Состояния объектов в массиве Открыт или Куплен
+						StatesMaterials = _SP.StatesMaterials; 	// Присваиваем списку Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+						StateImprovements = _SP.StateImprovements;// Присваиваем списку Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+						SkyboxNomers = _SP.SkyboxNomers;		// Присваиваем списку SkyboxNomers Номера скайбоксов в массиве SkyboxScreens
+						SkyboxState = _SP.SkyboxState;			// Присваиваем списку SkyboxState Состояния скайбоксов Открыт - O или Куплен - B
+					}
+					LoadProf.Close();							// Закрываем поток LoadProf
+				}
+				else 											// Если же профиль пустой
+				{
+					PlayersAv[i] = DefaultAvatar;				// Присваиваем ему "пустой" аватар по умолчанию
+				}
+			}
+		}
+		else 													// Если же файла ProfilesInf нет				
+		{
+			for(byte i=0; Profiles.Length > i; i++)				// Продолжаем цикл пока не пройдём весь массив Profiles
+			{
+				Profiles[i] = "_ _ _ _ _";						// Задаём начальное "пустое" имя
+				PlayersAv[i] = DefaultAvatar;					// И присваиваем ему "пустой" аватар по умолчанию
+			}
+		}
+	}
+	
+
+	void GetNamesAvatars()	// Этот метод помещает путь имена аватаров в переменную NamesAv
+	{
+		NamesAv = Directory.GetFiles(Application.streamingAssetsPath + "/AvatarsPlayers/", "*.jpg");
+	}
+
+
+	void SizeTextButtonProfile(byte nomber)	// Эта переменная определяет какой размер текста должен быть у кнопки этого профиля
+	{
+		if(Profiles[nomber].Length<=16)
+			GameSkin.GetStyle("ButtonProfile").fontSize = 20;
+		else if(Profiles[nomber].Length>16)
+			GameSkin.GetStyle("ButtonProfile").fontSize = 17;
+	}
+
+
+	void ChangeActiveProfile(sbyte NomberProfile)	// Этот метод изменяет номер активного профиля а также переписывает его в документе ProfileInf
+	{
+		if(Profiles[NomberProfile] != "_ _ _ _ _")							// Если этот профиль не пуст
+		{
+			ActiveProfile = NomberProfile;									// Мы отмечаем этот профиль как активный
+			IFormatter Des = new BinaryFormatter();							// Создаём дессериализатор
+			// Открываем новый поток из активного профиля
+			FileStream ChangeProf = new FileStream(path+"/My Games/Slide/Saves/"+Profiles[ActiveProfile]+".bin", FileMode.Open, FileAccess.Read);
+			// Создаём объект (Load Active Profile)и десериализуем в него данные из файла с именем активного профиля
+			InfoProfile LAP = (InfoProfile)Des.Deserialize(ChangeProf);
+			PlayedLevel = LAP.PlayedLevel;									// Загружаем в PlayedLevel данные из нового активного профиля
+			LastModels = LAP.LastModels;									// Загружаем в LastModels данные из нового активного профиля
+			RightSide = LAP.RightSide;										// Загружаем в RightSide данные из нового активного профиля
+			AlienStyle = LAP.AlienStyle;									// Загружаем в AlienStyle данные из нового активного профиля
+			ObjectNombers = LAP.ObjectNombers;			// Присваиваем списку ObjectNombers номера объектов в масииве ObjectsStore
+			ActiveMats = LAP.ActiveMats;				// Присваиваем списку ActiveMats Номера активных материалов для объектов в массиве
+			ObjectState = LAP.ObjectState;				// Присваиваем списку ObjectsState Состояния объектов в массиве Открыт или Куплен
+			StatesMaterials = LAP.StatesMaterials; 		// Присваиваем списку Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+			StateImprovements = LAP.StateImprovements;	// Присваиваем списку Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+			SkyboxNomers = LAP.SkyboxNomers;			// Присваиваем списку SkyboxNomers Номера скайбоксов в массиве SkyboxScreens
+			SkyboxState = LAP.SkyboxState;				// Присваиваем списку SkyboxState Состояния скайбоксов Открыт - O или Куплен - B
+			ChangeProf.Close();							// Закрываем поток
+
+			InfoProfiles CAP = new InfoProfiles();		// Создаём объект (CangeActiveProfile)
+			CAP.ActiveProfile = ActiveProfile;			// Присваиваем переменной CAP.ActiveProfile номер активного профиля
+			CAP.Profiles = Profiles;					// Присваиваем массиву CAP.Profiles имена всех профилей
+
+			// Создаём поток (Rewrite Profiles Information) перезаписывающий номер активного профиля а также имена всех профилей в документ
+			FileStream RPI = new FileStream(path + "/My Games/Slide/Saves/ProfilesInf.bin",FileMode.Create);
+			BinaryFormatter BinFor = new BinaryFormatter(); // Создаём экземляр класса серриализатора
+			BinFor.Serialize(RPI,CAP);						// Серриализуем объект CAP в поток RPI
+			RPI.Close();									// Закрываем поток RPI
+
+			Window = MainMenuWins.MainMenu;									// Переносим игрока в главное меню
+			CreationProfile = false;										// Переменная создание профиля равно ложь
+			ReviewProfile = false;											// И переменная обзор профиля равно ложь
+			RPCP = new Vector2(-1410,280);				// И переменной реальная поз.. окна создания профиля ставим начальные координаты
+			RPRP = new Vector2(-1410,280);				// Переменной реальная позиция окна просмотра профиля
+			RPWP = new Vector2(-200,280);				// Переменной реальная поз.. окна профиля ставим координаты где окно находиться в центре
+		}
+	}
+
+	// Если активный профиль первый и мы его удаляем то переменные не заполняються при удалении профиля новым профилем
+	// Этот метод удаляет профиль и перемещает информацию о профилях ниже вверх чтобы небыло пробелов
+	public void DeleteProfile(byte RemuvableProfile)
+	{
+		bool ActiveProfileDeleted = false;							// Переменная говорит был ли удалён активный профиль или нет
+		string NameDelProfile = Profiles[RemuvableProfile];			// Записываем имя удаляемого профиля
+
+		if(ActiveProfile == RemuvableProfile)						// Если мы удалили активный профиль
+			ActiveProfileDeleted = true;							// То переменная ActiveProfileDeleted равна правда
+
+		for(int i = RemuvableProfile; i < Profiles.Length; i++) 	// Продолжаем цикл пока не переберём оставшиеся профили
+		{
+			if(i<Profiles.Length-1)						// Если это не последний цикл то перемещаем в верхний профиль информацию из нижнего
+			{
+				Profiles[i] = Profiles[i+1];			// Перемещаем имя профиля в верхний слот из нижнего
+				PlayersAv[i] = PlayersAv[i+1];			// Перемещаем аватарку профиля в верхний слот из нижнего
+				Score[i] = Score[i+1];					// Перемещаем количество денег с нижнего профиля в верхний
+				Progress[i] = Progress[i+1];			// Перемещаем следующий уровень доступный для прохождения с нижнего профиля на верхний
+			}
+			else if(i == Profiles.Length-1)				// Если это последний цикл и посл.. профиль то мы просто удаляем информацию из последнего
+			{
+				Profiles[i] = "_ _ _ _ _";				// Ставим имя последнего профиля на имя по умолчания
+				PlayersAv[i] = DefaultAvatar;			// Ставим аватар последнего профиля на аватар по умолчанию
+				Score[i] = 0;							// Ставим количество рубинов в последнем профиле на 0
+				Progress[i] = 0;						// Ставим следующий уровень доступный для прохождения на 0
+			}
+		}
+
+		File.Delete(path + "/My Games/Slide/Saves/" + NameDelProfile + ".bin"); // Удаляем документ сохранения удаляемого профиля
+
+		if(Profiles[ActiveProfile] == "_ _ _ _ _")		// Если номер активного профиля теперь имеет пустое имя
+			ActiveProfile --;							// То мы уменьшаем номер переменной ActiveProfile на 1
+
+		InfoProfiles SP = new InfoProfiles();			// Создаём объект SP класса SaveProfiles
+		SP.ActiveProfile = ActiveProfile;				// Записываем в объект SP значение ActiveProfile
+		SP.Profiles = Profiles;							// Записываем в объект SP массив Profiles
+
+		// Пересоздаём файл сохранения общей информации профилей и посылаем в него поток
+		FileStream SaveInf = new FileStream(path + "/My Games/Slide/Saves/ProfilesInf.bin", FileMode.Create);
+		BinaryFormatter BinFor = new BinaryFormatter(); // Создаём объект класса серриализатора
+		BinFor.Serialize(SaveInf, SP);					// Серриализуем объект SP в поток SaveInf
+		SaveInf.Close();								// Закрываем поток
+
+		if(ActiveProfileDeleted == true & ActiveProfile != -1)	// Если мы удалили активный профиль и какой нибуть профиль ещё осталься
+		{
+			IFormatter Form = new BinaryFormatter();	// Создаём дессериализатор
+			// Создаём поток читающий из нашего файла
+			FileStream Load = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[ActiveProfile] + ".bin", FileMode.Open, FileAccess.Read);
+			// Создаём объект (Load Active Profile) и дессериализуем в него данные из нового активного профиля
+			InfoProfile LAP = (InfoProfile)Form.Deserialize(Load);
+
+			PlayedLevel = LAP.PlayedLevel;				// Присваиваем переменной PlayedLevel последний сыгранный уровень
+			LastModels = LAP.LastModels;				// Присваиваем массиву LastModels последние выбранные элементы игры
+			RightSide = LAP.RightSide;					// Присваиваем переменной RightSide выбранную сторону для игры
+			AlienStyle = LAP.AlienStyle;				// Присваиваем переменной AlienStyle сохранённый стиль цифр
+			ObjectNombers = LAP.ObjectNombers;			// Присваиваем списку ObjectNombers номера объектов в масииве ObjectsStore
+			ActiveMats = LAP.ActiveMats;				// Присваиваем списку ActiveMats Номера активных материалов для объектов в массиве
+			ObjectState = LAP.ObjectState;				// Присваиваем списку ObjectsState Состояния объектов в массиве Открыт или Куплен
+			StatesMaterials = LAP.StatesMaterials; 		// Присваиваем списку Состояния материалов Закрыт - C, Открыт - O, Купленн - B
+			StateImprovements = LAP.StateImprovements;	// Присваиваем списку Состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+			SkyboxNomers = LAP.SkyboxNomers;			// Присваиваем списку SkyboxNomers Номера скайбоксов в массиве SkyboxScreens
+			SkyboxState = LAP.SkyboxState;				// Присваиваем списку SkyboxState Состояния скайбоксов Открыт - O или Куплен - B
+			Load.Close();								// Закрываем поток LAP
+		}
+
+	}
+
+
+	void CalculatePosIcons() // Этот метод расчитывает позиции для иконок магазина и окон аватаров
+	{
+		int Left = 30;			 // Позиция с лева
+		int Top = 20;			 // Позиция с верху
+		byte NomberOfString = 0; // Номер отрисовываемого квадрата в строке
+
+		for(byte a=0; a<PosIconsAv.Length; a++)	// Продолжаем цикл пока не назначим позиции всему массиву масок для аватаров
+		{
+			PosIconsAv[a] = new Rect(Left, Top, 128, 128); // Расчитываем очередной квадрат
+			NomberOfString ++;					// Прибавляем каждую итерацию к номеру элемента по горизонтали
+			Left += 154;						// Прибавляем каждую итерацию позицию окна по ширине
+			
+			if(NomberOfString == 5)				// Если в этой строке был расположен последний элемент
+			{
+				NomberOfString = 0;				// То номер просчитываемого элемента в строке назначаем нулевым
+				Left = 30;						// Позиции окна по ширине ставим начальную ширину
+				Top += 148;						// И позиции окна по высоте прибавляем отступ
+			}
+		}
+
+		Left = 7;				// Присваиваем новые координаты позиции с лева для расчёта категории квадратов 
+		Top = 148;				// Присваиваем новые координаты позиции с верху для расчёта категории квадратов PosIconMats
+		NomberOfString = 0;		// Присваиваем NomberOfString начальное значение для расчёта категории квадратов PosIconMats
+
+		for(byte b=0; b<PosIconMask.Length; b++)	// Продолжаем цикл пока не назначим позиции всему массиву масок для аватаров
+		{
+			PosIconMask[b] = new Rect(Left, Top, 100, 100); // Расчитываем очередной квадрат
+			NomberOfString ++;					// Прибавляем каждую итерацию к номеру элемента по горизонтали
+			Left += 102;						// Прибавляем каждую итерацию позицию окна по ширине
+			
+			if(NomberOfString == 5)				// Если в этой строке был расположен последний элемент
+			{
+				NomberOfString = 0;				// То номер просчитываемого элемента в строке назначаем нулевым
+				Left = 7;						// Позиции окна по ширине ставим начальную ширину
+				Top += 102;						// И позиции окна по высоте прибавляем отступ
+			}
+		}
+
+		Left = 535;				// Присваиваем новые координаты позиции с лева для расчёта категории квадратов PosIconMats
+		Top = 396;				// Присваиваем новые координаты позиции с верху для расчёта категории квадратов PosIconMats
+		NomberOfString = 0;		// Присваиваем NomberOfString начальное значение для расчёта категории квадратов PosIconMats
+
+		for(byte c=0; c<PosIconSkins.Length; c++)			// Продолжаем цикл пока не назначим позиции всему массиву PosIconMats
+		{
+			PosIconSkins[c] = new Rect(Left, Top, 42, 42); 	// Расчитываем очередной квадрат
+			NomberOfString ++;								// Прибавляем каждую итерацию к номеру элемента по горизонтали
+			Left += 58;										// Прибавляем каждую итерацию отступ ячейки по ширине
+
+			if(NomberOfString == 5)							// Если в этой строке был расположен последний элемент
+			{
+				NomberOfString = 0;							// То номер просчитываемого элемента в строке назначаем нулевым
+				Left = 526;									// Позиции окна по ширине ставим начальную ширину
+				Top += 58;									// И позиции окна по высоте прибавляем отступ
+			}
+		}
+
+		Top = 540;								// Присваиваем новые координаты позиции с верху для расчёта категории квадратов PosIconImprs
+		NomberOfString = 0;						// Присваиваем NomberOfString начальное значение для расчёта категории квадратов PosIconMats
+
+		for(byte d=0; d<PosIconImprs.Length; d++)	// Продолжаем цикл пока не назначим позиции всему массиву PosIconImprs
+		{
+			PosIconImprs[d] = new Rect(Left, Top, 42, 42); // Расчитываем очередной квадрат
+			NomberOfString ++;					// Прибавляем каждую итерацию к номеру элемента по горизонтали
+			Left += 58;							// Прибавляем каждую итерацию отступ ячейки по ширине
+
+			if(NomberOfString == 5)				// Если в этой строке был расположен последний элемент
+			{
+				NomberOfString = 0;				// То номер просчитываемого элемента в строке назначаем нулевым
+				Left = 526;						// Позиции окна по ширине ставим начальную ширину
+				Top += 58;						// И позиции окна по высоте прибавляем отступ
+			}
+		}
+	}
+
+	
+	bool DrawButtonsAvatars()	// Этот метод отрисовывает кнопки аватаров по просчитанным позициям
+	{
+		bool pressed = false;
+		// Продолжаем цикл до тех пор пока не пройдём 50 циклов или до тех пор пока в массиве StAv мы не наткнёмся на значение null
+		for(byte i=0; StAv[i] != null; i++) 
+		{
+			if(GUI.Button(PosIconsAv[i], StAv[i], "Avatar"))		// Если очередная отрисовываемая в цикле кнопка была нажата
+			{
+				pressed = true;										// То переменной Pressed присваиваем значение правда
+				ActiveCell = i;										// И помещаем номер нажатой кнопки в переменную SelectedAv
+			}
+			if(i == 49)												// Если цыкл прошёл 49 итерацию
+				break;												// То мы завершаем цикл
+		}
+		return pressed;												// После отрисовки кнопок мы возвращаем значение была или нет нажата кнопка
+	}
+	
+
+	void DrawMaskAndPrice()	// Этот метод отрисовывает маску и цену поверх открытых но не купленных предметов в магазине
+	{		
+		for(byte a=0; a<25; a++) // Продолжаем цикл до тех пор пока не проверим 25 ячеек и не отрисуем на нужных маску
+		{
+			if(ObjOpen[a] == true)
+			{
+				GUI.DrawTexture(PosIconMask[a], ShadingObject);			// То отрисовываем маску поверх той ячейки
+				GUI.Label(PosIconMask[a], PriceObjs[a] + "", "StorePriceText");		// И отрисовываем цену поверх неё
+			}
+		}
+
+	}
+
+	
+	void FindPlayersAvatars()	// Этот метод находит сами аватары и помещает их в массив StAv
+	{
+		for(byte i=0; i<NamesAv.Length & i<StAv.Length; i++)
+		{
+			string FolderPath = "file:///" + NamesAv[i]; 	// Задаём путь переменной FolderPath
+			WWW www = new WWW(FolderPath);					// Присваиваем переменной www путь FolderPath
+			StAv[i] = www.texture;							// Загружаем в массив StAv текстуру
+		}
+	}
+
+	
+	// Этот метод при своём вызове отрисовывает кнопку с дополнительным рисунком для профиля
+	bool ProfileButton(Rect ButRectangle, string Buttontext, Texture ProfileImage)
+	{
+		bool Pressed = GUI.Button(ButRectangle, Buttontext, "ButtonProfile");
+		GUI.Label(new Rect(ButRectangle.x + 6, ButRectangle.y + 6, 48, 48), ProfileImage);
+		return Pressed;
+	}
+	
+
+	void ChangeCreateProfileWindowPosition()	// Этот метод изменяет позицию окошек при создании профиля
+	{
+		if(CreationProfile == true)				// Если значение переменной "Создать профиль" равно правда
+		{
+			NPCP = new Vector2(-410,280);		// То переменной новая позиция окна создания профиля присваиваем координаты где окно видно
+			NPWP = new Vector2(10,280);			// То переменной новая позиция окна профилей присваиваем координаты где окно сдвинуто вправо
+		}
+		else 									// Если же значение переменной "Создать профиль" равно ложь
+		{
+			NPCP = new Vector2(-1410,280);		// То переменной новая позиция окна создания профиля присваиваем координаты где окно спрятанно
+			NPWP = new Vector2(-200,280);		// То переменной новая позиция окна профиля присваиваем координаты где окно находиться в центре
+			TimerCP -= Time.deltaTime * 6;		// И отнимаем каждую секунду у TimerCP по 6 едениц
+		}
+		RPCP = Vector2.Lerp(RPCP, NPCP, Time.deltaTime * 6);	// Плавно изменяем положение окна создания профиля
+		RPWP = Vector2.Lerp(RPWP, NPWP, Time.deltaTime * 6);	// Плавно изменяем положение окна профилей
+	}
+
+
+	void ChangeReviewProfileWindowPosition()	// Этот метод изменяет позицию окошек при просмотре профиля
+	{
+		if(ReviewProfile == true)				// Если значение еременной "Просмотр профиля" равно правда
+		{
+			NPRP = new Vector2(-410,280);		// То переменной новая позиция окна просмотра профиля присваиваем координаты где окно видно
+			NPWP = new Vector2(10,280);			// То переменной новая позиция окна профилей присваиваем координаты где окно сдвинуто вправо
+		}
+		else
+		{
+			NPRP = new Vector2(-1410,280);		// То переменной новая позиция окна просмотра профиля присваиваем координаты где окно спрятанно
+			NPWP = new Vector2(-200,280);		// То переменной новая позиция окна профиля присваиваем координаты где окно находиться в центре
+			TimerRP -= Time.deltaTime * 6;		// И отнимаем каждую секунду у TimerRP по 6 едениц
+		}
+		RPRP = Vector2.Lerp(RPRP, NPRP, Time.deltaTime * 6);	// Плавно изменяем положение окна просмотра профиля
+		RPWP = Vector2.Lerp(RPWP, NPWP, Time.deltaTime * 6);	// Плавно изменяем положение окна профилей
+	}
+
+	
+
+
+	sbyte FindEmtySlotForSavingProfile()	// Этот метод проходит по массиву Profiles и находит в нём пустой слот для сохранения
+	{
+		sbyte Slot = 10;		// Назначаем переменной слот значение 10 по умолчанию. Которое означает что пустой слот не найден
+		for(sbyte i = 0; ; i++)	// Проходим по массиву находя первый пустой слот для профиля
+		{
+			if(Profiles[i] == "_ _ _ _ _")			// Если профиль имеет значение "_ _ _ _ _" значит он пустой
+			{
+				Slot = i;							// То переменной ProfileNumber задаём значение найденного пустого слота
+				break;								// Брейкаем цикл
+			}
+			else if(i == Profiles.Length -1)		// Если пройдя весь массив и мы не не нашли пустого профиля
+			{
+				break;
+			}
+		}
+		return Slot;
+	}
+
+
+	void SavePathNewAvProfile()		// Этот метод записывает путь нового выбранного аватара профиля если аватар поменяли
+	{
+		InfoProfile _SP = new InfoProfile();			// Создаём объект _SP класса SaveProfile
+		_SP.PlayersAv = PlayersAv[NumberProfile].name;	// Записываем в объект _SP путь к аватару для сохраняемого профиля
+		_SP.Score = 0;									// Записываем в объект _SP стартовое количество денег
+		_SP.Progress = 1;								// Записываем в объект _SP 0 и 1 уровень доступный для прохождения
+		_SP.PlayedLevel = 0;							// Записываем в объект _SP последний сыгранный уровень нулевой
+		_SP.LastModels = LastModels;					// Записываем в объект _SP последние 4 выбранные стартовых предмета
+		_SP.RightSide = RightSide;						// Записываем в объект _SP правую сторону предпочитаемую для игры
+		_SP.AlienStyle = AlienStyle;					// Записываем в объект _SP "стиль пришельцев" для цифр
+		_SP.ObjectNombers = ObjectNombers;				// Записываем в объект _SP номера объектов в масииве ObjectsStore
+		_SP.ActiveMats = ActiveMats;					// Записываем в объект _SP номера активных материалов для объектов в массиве
+		_SP.ObjectState = ObjectState;					// Записываем в объект _SP состояния объектов в массиве Открыт - O или Куплен - B
+		_SP.StatesMaterials = StatesMaterials;			// Записываем в объект _SP состояния материалов Закрыт - C, Открыт - O, Купленн - B
+		_SP.StateImprovements = StateImprovements;		// Записываем в объект _SP состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+		_SP.SkyboxNomers = SkyboxNomers;				// Записываем в объект _SP Номера скайбоксов в массиве SkyboxScreens
+		_SP.SkyboxState = SkyboxState;					// Записываем в объект _SP Состояния скайбоксов Открыт - O или Куплен - B
+
+		// Создаём файл сохранения для профиля и посылаем в него поток
+		FileStream SaveProf = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[NumberProfile] + ".bin", FileMode.Create);
+		BinaryFormatter BinFor = new BinaryFormatter();	// Создаём объект класса серриализатора
+		BinFor.Serialize(SaveProf, _SP);				// Серриализуем объект _SP в поток SaveInf
+		SaveProf.Close();								// Закрываем поток	
+	}
+
+
+	bool NameCheck()
+	{
+		for(byte i=0; i<Profiles.Length; i++)		// Продолжаем цикл пока не пройдём весь массив Profiles
+		{
+			if(Profiles[i] == "_ _ _ _ _")			// Если мы наткнулись на пустое имя
+			{
+				return false;						// Возвращаем false - (Значит такого же имени нет)
+			}
+			if(Profiles[i] == ProfileText)			// Если очередной в цикле профиль равен тексту вписанному в создании профиля
+			{
+				return true;						// Возвращаем правда - (Значит такое имя уже используется для одного из профилей)
+			}
+		}
+		return false;								// Если же мы прошли все профили и не нашли похожего имени то возвращаем false
+	}
+
+
+	IEnumerator CreateNewProfile()		// Этот метод создаёт новый профиль при нажатии кнопки создать новый профиль
+	{
+		sbyte EmptySlot;											// Пустой слот обнаруженный для сохранения в него профиля
+		EmptySlot = FindEmtySlotForSavingProfile();					// Находим пустой слот и помещаем его в переменную EmptySlot
+		if(EmptySlot == 10)											// Если пустой слот равен 10 значит свободных слотов не осталось
+			WarningText = "Не осталось свободных профилей! Удалите один из старых чтобы создать новый."; // Тогда мы выводим предупреждение
+		else if(ProfileText == "Введите имя игрока")				// Если вместо имени осталься (начальный текст)
+			WarningText = "Сотрите эти буквы и введите ваше имя!";	// Пишем предупреждение
+		else if(ProfileText == "")									// Если имя отсутствует
+			WarningText = "Введите ваше имя в игре!";				// То выводим текст в консоль "введите имя"
+		else if(ProfileText.Length <= 2)							// Если в поле 2 или менее двух букв
+			WarningText = "Слишком короткое имя!";					// То выводим предупреждение "Слишком короткий ник"
+		else if(ProfileAv.name == DefaultAvatar.name)				// Если имя текстуры такое же как и у аватара стоящего по умолчанию
+			WarningText = "Выберите себе аватар!";					// То выводим предупреждение что игрок должыен выбрать себе аватар
+		else if(NameCheck() == true)								// Если (метод NameCheck вернёт true) - профиль с таким именем уже существует 
+			WarningText = "Такой профиль уже существует!";
+		else 														// Если имя соответствует всем условиям 
+		{	
+			Profiles[EmptySlot] = ProfileText;			// Присваиваем вбитое в поле имя в создании профиля имя игрока
+			PlayersAv[EmptySlot] = ProfileAv;			// Присваиваем аватарку слоту аватара игрока
+			Score[EmptySlot] = 0;						// Присваиваем переменной деньги число 0
+			Progress[EmptySlot] = 1;					// Ставим уровень доступный для прохождения 1 (для тех кому не нужно обучение)
+			PlayedLevel = 1;							// Ставим последний сыгранный уровень на 0 чтобы выбралься уровень обучения
+
+			LastModels[0] = 0;							// Номер последней выбранной биты в массиве ObjectsStore (Стартовая бита)
+			LastModels[1] = 125;						// Номер последней выбранной шайбы в массив ObjectsStore (Стартовая шайба)
+			LastModels[2] = -1;							// Номер последнего выбранного поля в массиве ObjectsStore -1 означает что нету
+			LastModels[3] = -1;							// Номер последнего выбранного скайбокса в массиве SkyboxMats -1 означает что нету
+			RightSide = true;							// Присваиваем предпочитаемую по умолчанию сторону правую
+			AlienStyle = true;							// Предпочитаемый стиль цифр "стиль пришельцев"
+			List<char> ButMats = new List<char>(1);		// Создаём список с именем материалы биты размером 1
+			List<char> WasherMats = new List<char>(1);	// Создаём список с именем материалы шайбы размером 1
+			List<char> FieldMats = new List<char>(1);	// Создаём список с именем материалы поля размером 1
+			List<char> ImprState = new List<char>(0);	// Создаём пустой список с именем состояния улучш.
+			List<char> ImprState2 = new List<char>(0);	// Создаём пустой список с именем состояния улучш.
+			List<char> ImprState3 = new List<char>(0);	// Создаём пустой список с именем состояния улучш.
+			ButMats.Add('B');							// Указываем первый элемент списка ButMats (B) как купленный
+			WasherMats.Add('B');						// Указываем первый элемент списка WasherMats (B) как купленный
+			FieldMats.Add('B');							// Указываем первый элемент списка FieldMats (B) как купленный
+			ObjectNombers.Add(0);						// Указываем номер 1 элемента в списке ObjectNombers для нахождения его в массиве
+			ObjectNombers.Add(125);						// Указываем номер 2 элемента в списке ObjectNombers для нахождения его в массиве
+			ObjectNombers.Add(250);						// Указываем номер 3 элемента в списке ObjectNombers для нахождения его в массиве
+			SkyboxNomers.Add(0);						// Указываем номер 1 элемента в списке SkyboxNombers для нахождения его в массиве
+			ActiveMats.Add(0);							// Указываем номер активного материала для 1 элемента в списке ObjectNombers (Биты)
+			ActiveMats.Add(0);							// Указываем номер активного материала для 2 элемента в списке ObjectNombers (Шайбы)
+			ActiveMats.Add(0);							// Указываем номер активного материала для 3 элемента в списке ObjectNombers (Стола)
+			ObjectState.Add('B');						// Указываем состояние 1 элемента в списке ObjectNombers (Биты) как куплен
+			ObjectState.Add('B');						// Указываем состояние 2 элемента в списке ObjectNombers (Шайбы) как куплен
+			ObjectState.Add('O');						// Указываем состояние 3 элемента в списке ObjectNombers (Стола) как открыт
+			SkyboxState.Add('O');						// Указываем состояние 1 элемента в списке SkyboxNombers (Скайбокса) как открыт
+			StatesMaterials.Add(ButMats);				// Указываем состояния всех материалов для 1 элемента в списке StatesMaterials
+			StatesMaterials.Add(WasherMats);			// Указываем состояния всех материалов для 2 элемента в списке StatesMaterials
+			StatesMaterials.Add(FieldMats);				// Указываем состояния всех материалов для 3 элемента в списке StatesMaterials
+			StateImprovements.Add(ImprState);			// Указываем пустой список улучшений для 1 элемента в списке StateImprovements
+			StateImprovements.Add(ImprState);			// Указываем пустой список улучшений для 2 элемента в списке StateImprovements
+			StateImprovements.Add(ImprState);			// Указываем пустой список улучшений для 3 элемента в списке StateImprovements
+			ActiveProfile = EmptySlot;					// Делаем созданный профиль активным
+
+			if(!Directory.Exists(path + "/My Games/Slide/Saves")) // Если на компьютере нет папки мои документы а в ней моей игры
+			{
+				Directory.CreateDirectory(path + "/My Games/Slide/Saves");	// То создаём её а внутри папку с названием игры
+			}
+
+			InfoProfiles SP = new InfoProfiles();			// Создаём объект SP класса SaveProfiles
+			SP.ActiveProfile = ActiveProfile;				// Записываем в объект SP значение ActiveProfile
+			SP.Profiles = Profiles;							// Записываем в объект SP массив Profiles
+
+			InfoProfile _SP = new InfoProfile();			// Создаём объект _SP класса SaveProfile
+			_SP.PlayersAv = PlayersAv[EmptySlot].name;		// Записываем в объект _SP путь к аватару для сохраняемого профиля
+			_SP.Score = 0;									// Записываем в объект _SP стартовое количество денег
+			_SP.Progress = 1;								// Записываем в объект _SP 0 и 1 уровень доступный для прохождения
+			_SP.PlayedLevel = 0;							// Записываем в объект _SP последний сыгранный уровень нулевой
+			_SP.LastModels = LastModels;					// Записываем в объект _SP последние 4 выбранные стартовых предмета
+			_SP.RightSide = RightSide;						// Записываем в объект _SP правую сторону предпочитаемую для игры
+			_SP.AlienStyle = AlienStyle;					// Записываем в объект _SP "стиль пришельцев" для цифр
+			_SP.ObjectNombers = ObjectNombers;				// Записываем в объект _SP номера объектов в масииве ObjectsStore
+			_SP.ActiveMats = ActiveMats;					// Записываем в объект _SP номера активных материалов для объектов в массиве
+			_SP.ObjectState = ObjectState;					// Записываем в объект _SP состояния объектов в массиве Открыт - O или Куплен - B
+			_SP.StatesMaterials = StatesMaterials;			// Записываем в объект _SP состояния материалов Закрыт - C, Открыт - O, Купленн - B
+			_SP.StateImprovements = StateImprovements;		// Записываем в объект _SP состояния улучшений Закрыт - С, Открыт - O, Купленн - B
+			_SP.SkyboxNomers = SkyboxNomers;				// Записываем в объект _SP Номера скайбоксов в массиве SkyboxScreens
+			_SP.SkyboxState = SkyboxState;					// Записываем в объект _SP Состояния скайбоксов Открыт - O или Куплен - B
+
+
+			// Создаём файл сохранения общей информации профилей и посылаем в него поток
+			FileStream SaveInf = new FileStream(path + "/My Games/Slide/Saves/ProfilesInf.bin", FileMode.Create);
+			BinaryFormatter BinFor = new BinaryFormatter(); // Создаём объект класса серриализатора
+			BinFor.Serialize(SaveInf, SP);					// Серриализуем объект SP в поток SaveInf
+			SaveInf.Close();								// Закрываем поток
+
+			// Создаём файл сохранения для профиля и посылаем в него поток
+			FileStream SaveProf = new FileStream(path + "/My Games/Slide/Saves/" + Profiles[EmptySlot] + ".bin", FileMode.Create);
+			BinaryFormatter BinFor2 = new BinaryFormatter();// Создаём объект класса серриализатора
+			BinFor2.Serialize(SaveProf, _SP);				// Серриализуем объект _SP в поток SaveInf
+			SaveProf.Close();								// Закрываем поток
+
+			ProfileText = "";													// Стираем имя в поле ввода имени
+			WarningText = "<color='#50ab59'>Профиль успешно создан</color>";	// Выводим сообщение что пофиль успешно создан
+			ButtonEnabled = false;												// Блокируем все кнопки в меню
+			yield return new WaitForSeconds(2);									// Ждём 2 секунды
+			Window = MainMenuWins.MainMenu;										// Отправляем игрока в главное меню
+			CreationProfile = false;											// Ставим переменую CreationProfile в положение ложь
+			ProfileAv = DefaultAvatar;											// Ставим аватар в меню создания аватара по умолчанию
+			WarningText = "";													// Стираем надпись имя подходит
+			ProfileText = "Введите имя игрока";									// Ставим текст введите имя пользователя
+			ButtonEnabled = true;												// Разблокируем кнопки меню
+		}
+	}
+}
+
+
+

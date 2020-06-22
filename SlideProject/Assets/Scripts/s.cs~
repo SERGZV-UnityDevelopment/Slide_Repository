@@ -1,0 +1,24 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class SoundManager : MonoBehaviour 
+{
+	public GameManager GM;		// Переменная для скрипта GameManager
+	public AudioClip Ovations;	// Переменная для аудиоклипа "Овации"
+	public AudioClip Whistle;	// Переменная для аудиоклипа "Свист"
+
+	void Awake()
+	{
+		// Ложим в переменную GM скрипт GameManager с пустышки на сцене под темже именем GameManager
+		GM = GameObject.Find("GameManager").GetComponent<GameManager>();
+	//	GM.GoalEvent += Goal;	// Подписываем метод Гол на событие GoalEvent
+	}
+
+
+	void Goal()
+	{
+
+	}
+}
+
+

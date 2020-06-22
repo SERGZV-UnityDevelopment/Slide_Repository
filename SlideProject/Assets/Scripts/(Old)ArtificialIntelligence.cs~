@@ -1,0 +1,218 @@
+// Это скрипт искуственного интелекта управляющего битой противника
+using UnityEngine;
+using System.Collections;
+
+
+public class OldArtificialIntelligence : MonoBehaviour 
+{
+	public bool Think;					// Эта переменная говорит будет ли искуственный интеллект думать или нет
+	public GameObject GameM;			// Это переменная для игрового объекта GameManager
+	public GameManager GM;				// Переменная для скрипта GameManager
+	public PauseMenu PM;				// Переменная для скрипта PauseMenu
+	public ObjectScript OS;				// Переменная для скрипта ObjectScript
+	public Vector3 StandPoint;			// Эта переменная указывает место ожидания биты управляемой компьютером
+	public GameObject Puck; 			// Ссылка на клон префаба шайбы
+	Keeper Kep;							// Переменная для скрипта "Хранитель"
+	byte PuckIsStand;					// Считает сколько раз старая позиция шайбы была равна новой (То есть стоит она или медленно движеться)
+	bool MySide;						// Переменная говорит на стороне компьютера или живого игрока находиться шайба
+	bool ItMovesTomMe;					// Переменная говорит последнее движение шайбы было зафиксированно на ворота компьютера?
+	Vector3 Old;						// Сдесь будет лежать чуть устаревшая позиция шайбы
+	Vector3 New;						// Сдесь будет лежать настоящая позиция шайбы
+	Vector3 Dirrection;					// Эта переменная указывает направление движения биты
+	Rigidbody TBR;						// (ThisBatRigitbody) Переменная для компонента Rigidbody этой биты
+	bool InningWas;						// Переменная говорит была ли выполнена подача
+
+
+	void Awake()											// Вызываеться при пробуждении
+	{
+		GameM = GameObject.Find("GameManager");				// Ложим объект GameManager в переменную GameM
+		GM = GameM.GetComponent<GameManager>();				// Ложим в переменную GM скрипт GameManager
+		Kep = GameM.GetComponent<Keeper>();					// Находим компонент "Keeper" и ложим его в переменную Kep
+		PM = GameM.GetComponent<PauseMenu>();				// Ложим в переменную PM скрипт PauseMenu
+		TBR = GetComponent<Rigidbody>();					// Ложим в переменную TBR Rigidbody биты на которой висит этот скрипт
+		OS = GetComponent<ObjectScript>();					// В переменную ObjectScript загружаем ObjectScript
+		GM.StartLevelEvent += StartLevel;					// В список события StartLevelEvent добавляем метод StartLevel
+		GM.GoalEvent += Goal;								// Подписываем метод гол на событие GoalEvent
+	}
+	
+
+	void Update () 										
+	{
+		if(Think)										// Если переменная думать равна "правда"
+			if(InningWas)								// И если подача была выполненна или она вовсе не нужна
+				WhatToDo();								// Вызываем метод решающий что делать
+	}
+
+
+	void FixedUpdate()					
+	{
+		if(Think)										// Если переменная Думать равна true
+		{
+			TBR.AddForce(Dirrection);					// То задаём силу и направление указанное в переменной Dirrection
+		}
+	}
+
+	
+	// Узнаём направление, нормализуем вектор, Умножаем вектор на силу и помещаем реультат в переменную Dirrection
+	IEnumerator Inning()																// Этот метод нужен для подачи в начале игры если выпала подача компьютера				
+	{
+		Vector3 BackVector;																// Направление нужное чтобы отдалиться от шайбы
+		BackVector = gameObject.transform.position - GM.Puck.transform.position;		// Вычисляем направление в котором нужно двигаться
+		BackVector.Normalize();															// Нормализуем вектор
+		Dirrection = BackVector * OS.Force;												// Умножаем вектор TemporaryVector на силу этой биты и присваиваем это значение вектору Dirrection																
+		yield return new WaitForSeconds(1.5f);											// Ждём 1.5 секунды заменить время на рассояние
+		Dirrection -= Dirrection * 2;													// Реверсируем направление шайбы чтобы выполнить удар
+		yield return new WaitForSeconds(2.5f);											// Ждём 2 секунды заменить на соприкосновение с шайбой
+		InningWas = true;																// Ставим что подача выполненна
+	}
+	
+
+	void WhatToDo()									// Этот метод вызываеться каждый кадр он решает что делать встать на StandPoint или применить защиту
+	{
+		RaycastHit Hit;																// Обозначаем переменную куда вернёться коллайдер об который ударилься луч
+		Vector3 Dir = New - Old;													// Вычисляем направление движения шайбы
+		Vector3.Normalize(Dir);
+		Debug.DrawRay(New, Dir * 100, Color.red);
+
+		if(Kep.RightSide == true & GM.Puck.transform.position.x < 0 || Kep.RightSide == false & GM.Puck.transform.position.x > 0)	// Если шайба на стороне компьютера
+			MySide = true;															// Указываем что шайба на стороне компьютера
+		else MySide = false; 														// Иначе ставим что шайба не на стороне компьютера
+		
+		
+
+//		Debug.Log("Новая позиция " + New + " Старая позиция " + Old);
+		if(Old != New)																// Если старая позиция шайбы не равна новой то луч может корректно просчитаться
+		{
+			if(Physics.Raycast(New, Dir, out Hit)) 									// Мы пускаем луч и если он обо чтото удариться
+			{
+				if(Hit.collider.tag == "Gate" && Hit.collider.GetComponent<GateTrigger>().PlayerGate == 2 && MySide)	// Если луч ударилься в ворота второго игрока и шайба на его стороне
+				{
+					Debug.Log("Луч ударилься во врата компьютера - есть угроза гола");									// Выводим сообщение что есть угроза гола
+					ItMovesTomMe = true;											// Регестрируем что последний раз шайба двигалась в ворота компьютера
+					React();														// То вызываем метод react
+				}
+				else 																// Иначе если луч ударилься не в ворота второго игрока
+				{
+					ItMovesTomMe = false;											// Регестрируем что последний раз шайба двигалась не в ворота компьютера
+					TakeStandPosition();											// То вызываем метод TakeStartPosition занять стартовую позицию
+				}
+
+			}
+			Old = New;																// Присваиваем старой позиции, позицию новой переменной уже немного устаревшую
+			New = GM.Puck.transform.position;										// А новой позиции присваиваем обновлённую позицию шайбы
+			PuckIsStand = 0;														// Снимаем счётчик счёта простоя шайбы
+		}
+		else 																		// Иначе если старая позиция шайбы равна новой
+		{
+			New = GM.Puck.transform.position;										// То обновляем позицию шайбы (если она сменила свою позицию)
+			if(PuckIsStand < 20)													// Если ещё не доказанно что шайба стоит (Возможно медлено движеться)
+			{
+				PuckIsStand ++;														// Говорим что шайба пробыла на том же месте ещё одно мнгновение
+				if(MySide)															// Если шайба на стороне компьютера
+					if(ItMovesTomMe)												// И последний раз она двигалась к компьютеру
+						React();													// То вызываем метод React
+					else 															// Иначе если последний раз она двигалась не в ворота
+						TakeStandPosition();										// Приказываем занять позицию для ожидания					
+			}
+			else																	// Если шайба и правда стоит а не медленно движеться
+			{
+				TakeStandPosition();												// Начинаем вызывать метод встать на стартовую позицию
+			}
+		}
+	}
+
+
+	void TakeStandPosition()																// Этот метод вызываеться когда нужно встать на стартовую точку
+	{
+		Vector3 Temporary = Vector3.Normalize(StandPoint - transform.position);				// Обновляем вектор движения в точку ожидания, нормализуем этот вектор и присваиваем вектору Temporary
+		if(Vector3.Magnitude(StandPoint - transform.position) > 0.5f)						// Если от биты до StandPoint расстояние больше чем пол метра 
+		{
+			Dirrection = Temporary * OS.Force;												// То вектор Temporary умножаем на силу биты и присваиваем как новый вектор движения
+		}
+		else 	 																			// Иначе если от StandPoint до биты расстояние меньше или равно пол метра
+		{
+			// То вектор движения биты умножаем на силу биты делённую умноженную на расстояние и присваиваем как новый вектор движения
+			Dirrection = Temporary * (OS.Force * (Vector3.Magnitude(StandPoint - transform.position)));
+		}
+	}
+
+
+	void React()																		// Этот метод вызываеться когда нужно отреагировать - защититься
+	{
+		Vector3 Timed = New - transform.position;
+		Timed = Vector3.Normalize(Timed);
+		Dirrection = Timed * OS.Force;
+	}
+
+
+	bool IHaveThePuck()													// Метод вычисляет шайба у компьютера или у игрока если у компьютера возвращает правда 
+	{
+		bool Ihave = false;												// Хранит ответ на вопрос (шайба у компьютера ?) по умолчанию ответ нет
+		// Если при старте игры расстояние между битой компьютера и шайбой больше меньше 2 метров
+		if(Vector2.Distance(new Vector2(transform.position.x, transform.position.y), new Vector2(GM.Puck.transform.position.x, GM.Puck.transform.position.y))< 2)
+		{
+			Ihave = true;												// Указываем переменной что бита у компьютера
+		}
+		return Ihave;													// Возвращаем результат переменной Ihave
+	}
+
+
+//-------------------------------------------------------------------------------------Событие старта уровня--------------------------------------------------------------------------------------------------------------------------
+
+
+	void StartLevel()											// Этот метод вызываеться при старте уровня
+	{
+		Think = true;											// Ставим переменную PM.AI.Play равной правда
+		float d = GetComponent<MeshRenderer>().bounds.size.x;	// Получаем диаметр биты компьютерного игрока
+		if(Kep.RightSide == true)								// Если переменная "Правая сторона" правда
+			StandPoint.x = GM.SPP2.x + (d/2) + 0.2f;			// То StandPoint это позиция второго игрока + его радиус + условное расстояние
+		else 													// Иначе если переменная "Правая сторона" ложь
+			StandPoint.x = GM.SPP2.x - (d/2) - 0.2f;			// То StandPoint это позиция второго игрока - его радиус - условное расстояние
+		Old = GM.Puck.transform.position;						// Вектор Old равен текущей позиции шайбы
+		New = GM.Puck.transform.position;						// Вектор New равен текущей позиции шайбы
+		StartCoroutine(AfterStart());							// Вызываем коронтину "После старта" 						
+	}
+
+
+	IEnumerator AfterStart()
+	{
+		yield return new WaitForSeconds(0.1f);					// Ждём 1 секунду
+		if(IHaveThePuck())										// Вычисляем. Шайба у компьютера? Если метод вернёт правда
+			StartCoroutine(Inning());							// Вызываем метод запускающий подачу
+		else 													// Если вернёт ложь
+		{
+			InningWas = true;									// Сообщаем что подача была выполненна
+		}
+		New = GM.Puck.transform.position;						// Ставим начальную позицию шайбы в игре как новую
+		Old = New;												// Эту же позицию ставим как старую
+	}
+
+//-----------------------------------------------------------------------------------------Событие гола--------------------------------------------------------------------------------------------------------------------------
+
+	void Goal()									// Этот метод вызываеться один раз во время гола
+	{
+		Think = false;							// Приказываем компьютеру остановиться
+		StartCoroutine(AfterGoal());			// Вызываем коронтину AfterGoal					
+	}
+
+
+	IEnumerator AfterGoal()						// Этот метод вызываеться после выполнения метода гол
+	{
+		yield return new WaitForSeconds(4); 	// Ждём 4 секунды
+		transform.position = GM.SPP2;			// Ставим биту управляемую компьютером на позицию просчитанную для второго игрока
+		yield return new WaitForSeconds(1);		// Ждём 1 секунду
+		Think = true;							// Приказываем компьютеру возобновить игру
+	}
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+	void OnDisable()
+	{
+		GM.GoalEvent -= Goal;					// Отписываем метод Goal от события GoalEvent
+		GM.StartLevelEvent -= StartLevel;		// Отписываем метод StartLevel от события StartLevelEvent
+	}
+}
+
+
+

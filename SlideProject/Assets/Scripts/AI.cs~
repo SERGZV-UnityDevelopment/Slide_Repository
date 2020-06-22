@@ -1,0 +1,22 @@
+﻿using UnityEngine;
+using System.Collections;
+
+
+public class ArtificialIntelligence : MonoBehaviour 
+{
+	public bool Play;	// Эта переменная говорит будет ли искуственный интеллект работать или он остановиться
+
+	void Start () 
+	{
+
+	}
+	
+
+	void Update () 
+	{
+		if(Play)
+		{
+			Debug.Log("Я думаю");
+		}
+	}
+}
